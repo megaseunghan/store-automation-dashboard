@@ -1,6 +1,6 @@
-import { apiRequest, isCloud } from './client.js?v=bca88bf62fdf';
-import { AUTOMATIONS } from './modules.js?v=bca88bf62fdf';
-import { initReporting, updateReporting, syncReporting, reportActions } from './reporting.js?v=bca88bf62fdf';
+import { apiRequest, isCloud } from './client.js?v=1981a61c1c33';
+import { AUTOMATIONS } from './modules.js?v=1981a61c1c33';
+import { initReporting, updateReporting, syncReporting, reportActions } from './reporting.js?v=1981a61c1c33';
 let csrf = '', busy = false, refreshTimer, activeView;
 let readOnly = false;
 let stores = [], lastPlatform = 'instagram', snapshot = null, refreshVersion = 0;
@@ -41,7 +41,7 @@ function syncView() {
     if (link.dataset.viewLink === (view === 'report' ? 'history' : view)) link.setAttribute('aria-current', 'page'); else link.removeAttribute('aria-current');
   }
   if (activeView !== view) { activeView = view; window.scrollTo({ top: 0, behavior: 'instant' }); }
-  document.title = `${({ dashboard: '대시보드', history: '실행 기록', accounts: '계정 관리', trends: '추이 분석', report: '상세 보고서' })[view]} | 매장 업무`;
+  document.title = `${({ dashboard: '월별 실적', history: '지난 보고서', accounts: '계정 설정', trends: '연간 추이', report: '상세 보고서' })[view]} | 매장 업무`;
 }
 function syncFilters() {
   const params = new URL(location.href).searchParams;
@@ -59,7 +59,7 @@ function renderAutomations() {
     const row = el('article', undefined, 'automation-row');
     const content = el('div'); content.append(el('h3', module.title), el('p', module.description), el('p', module.schedule, 'schedule'));
     const action = el('button', module.action, 'button-quiet'); action.type = 'button';
-    action.addEventListener('click', () => { writeUrl({ view: 'dashboard' }); syncView(); const target = document.getElementById(module.target); if (target) { target.scrollIntoView({ behavior: 'instant', block: 'start' }); document.getElementById(module.focusTarget)?.focus({ preventScroll: true }); } });
+    action.addEventListener('click', () => { writeUrl({ view: 'dashboard' }); syncView(); const target = document.getElementById(module.target); if (target) { target.closest('details')?.setAttribute('open',''); target.scrollIntoView({ behavior: 'instant', block: 'start' }); document.getElementById(module.focusTarget)?.focus({ preventScroll: true }); } });
     row.append(content, action); list.append(row);
   }
 }
@@ -100,19 +100,43 @@ function resultRow(result, showStore = true) {
 const resultHeaders = [['매장 / 플랫폼'], ['인정', true], ['조회', true], ['저장', true], ['공유', true], ['상태']];
 function renderLatest() {
   if (!snapshot) return;
-  const period = $('#month').value; $('#latestPeriod').textContent = `${period} · 최근 수집값`;
+  const period = $('#month').value; $('#latestPeriod').textContent = `${period.split('-')[0]}년 ${Number(period.split('-')[1])}월 게시물 기준`;
   const latest = new Map();
   for (const report of [...snapshot.reports].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))) {
     if (report.month !== period) continue;
     for (const result of report.results) { const key = `${result.storeName}:${result.platform}`; if (!latest.has(key)) latest.set(key, result); }
   }
   const target = $('#latestResults'); target.replaceChildren(); target.setAttribute('aria-busy', 'false');
-  if (!latest.size) { target.append(el('p', '이 기간의 수집 결과가 없습니다. 매장과 대상 월을 선택해 수집해 주세요.', 'empty')); return; }
-  const grid = table(resultHeaders); const body = grid.querySelector('tbody');
-  for (const store of stores) for (const platform of store.threads ? ['instagram', 'threads'] : ['instagram']) {
-    const result = latest.get(`${store.name}:${platform}`); if (result) body.append(resultRow(result));
+  $('#ownerUpdated').textContent='';
+  if (!latest.size) { target.append(el('p', '이 달의 실적이 아직 없습니다.', 'empty')); return; }
+  const cards = el('div', undefined, 'owner-store-list');
+  for (const store of stores) {
+    const platforms = store.threads ? ['instagram','threads'] : ['instagram'];
+    const results = platforms.map(platform => latest.get(`${store.name}:${platform}`));
+    const available = results.filter(Boolean);
+    const complete = available.length === platforms.length && available.every(r => r.status === 'collected' && r.listComplete);
+    const total = key => {
+      const values = available.filter(r => r.status !== 'failed').map(r => r.summary.metrics[key]);
+      return {value: values.some(m => Number.isFinite(m?.total)) ? values.reduce((sum,m) => sum + (Number.isFinite(m?.total) ? m.total : 0),0) : null,
+        partial: !complete || values.some(m => m?.missing > 0 || !Number.isFinite(m?.total))};
+    };
+    const views=total('views'), shares=total('shares');
+    const noPosts=complete&&available.every(r=>r.summary.included===0&&!r.summary.pending);
+    const attention=!complete||views.partial||shares.partial||available.some(r=>r.status!=='collected'||r.summary.pending);
+    const card = el('article',undefined,'owner-store');
+    const heading = el('div',undefined,'owner-store-heading');heading.append(el('h3',store.name),el('span',!available.length?'자료 없음':noPosts?'인정 게시물 없음':attention?'확인 필요':'확인 완료','owner-status'));card.append(heading);
+    const hero = el('div',undefined,'owner-views');hero.append(el('span','조회 수','small'),el('strong',views.value===null?'—':views.value.toLocaleString('ko-KR')),el('span',views.value===null?(noPosts?'집계 대상 없음':'미확인'):views.partial?'일부 확인':'회','small'));card.append(hero);
+    const metrics = el('dl',undefined,'owner-metrics');
+    const count = complete ? available.reduce((sum,r)=>sum+r.summary.included,0) : null;
+    for(const [label,value] of [['인정 게시물',count===null?'미확인':`${count}건`],['공유',shares.value===null?'미확인':`${shares.value.toLocaleString('ko-KR')}${shares.partial?' (일부)':'회'}`]]){const entry=el('div');entry.append(el('dt',label),el('dd',value));metrics.append(entry);}card.append(metrics);
+    const detail=el('details',undefined,'compact-details');detail.append(el('summary','자세히 보기'));const grid=table(resultHeaders);for(const result of available)grid.querySelector('tbody').append(resultRow(result,false));
+    if(available.length)detail.append(grid);else detail.append(el('p','아직 확인된 자료가 없습니다.','empty'));
+    for(const platform of platforms.filter((_,i)=>!results[i]))detail.append(el('p',`${platformName(platform)} 자료 없음`,'small'));
+    card.append(detail);cards.append(card);
   }
-  target.append(grid);
+  target.append(cards);
+  const last=[...snapshot.reports].filter(r=>r.month===period).sort((a,b)=>b.createdAt.localeCompare(a.createdAt))[0];
+  $('#ownerUpdated').textContent=last?`${dateLabel(last.createdAt)} 업데이트`:'';
 }
 function renderReports() {
   if (!snapshot) return;
@@ -174,7 +198,9 @@ async function refresh() {
   try {
     const status = await api('/api/status'); if (requestVersion !== refreshVersion) return; csrf = status.csrf; stores = status.stores; snapshot = status; readOnly = status.role === 'viewer';
     $('#serverEnvironment').textContent = `${status.serverLabel || '이 컴퓨터에서 실행 중'}${readOnly ? ' · 조회 전용' : ''}`;
-    document.querySelector('[data-view-link="accounts"]').hidden = readOnly;
+    document.querySelector('.view-nav [data-view-link="accounts"]').hidden = true;
+    $('#accountSettingsLink').hidden = readOnly; $('#managementTools').hidden = readOnly;
+    $('#serverEnvironment').textContent = readOnly ? '실적 보고서' : '관리자';
     $('#collectForm').hidden = readOnly; $('#recordState').closest('label').hidden = readOnly;
     $('#sharePanel').hidden = readOnly || !status.accessMode;
     if (readOnly) $('#recordState').value = 'active';

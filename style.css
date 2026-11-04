@@ -11,8 +11,8 @@
 /* Hallmark · dismissed kept · store headings are now ledger row labels; all 27 links and 8 fields are retained; historical figures remain in expandable execution records and raw reports */
 /* Hallmark · reworded "월별 수집" to "매장 마케팅 수집" · 19 names the actual task inside the dashboard */
 /* Hallmark · reworded "기존 월간·DM 예약의 전환과 API 자동 실행은 연결 대조 후 진행합니다." to "기존 월간 예약과 메시지 점검 예약의 자동 실행은 연결 대조 후 전환합니다." · 67 keeps sentence case in the body face */
-@import url('./tokens.css?v=bca88bf62fdf');
-@import url('./base.css?v=bca88bf62fdf');
+@import url('./tokens.css?v=1981a61c1c33');
+@import url('./base.css?v=1981a61c1c33');
 :root {
  --spacing-2: 2px;
  --spacing-3: 3px;
@@ -301,4 +301,23 @@ footer { border-top: 1px solid var(--color-rule); margin-top: var(--spacing-36);
  .analysis-summary{grid-template-columns:minmax(0,1.4fr) minmax(0,1fr)}
  .analysis-summary>div{padding:14px 0;gap:6px}.analysis-summary>div+div{border-top:0;border-left:1px solid var(--color-rule);padding-left:12px}
  .analysis-summary strong{font-size:26px}.analysis-summary .small{font-size:11px;line-height:1.5}
+}
+
+/* Owner view: monthly results first, management on demand. */
+.owner-period{display:flex;align-items:end;justify-content:space-between;gap:16px;margin:8px 0 28px;padding:18px 0;border-bottom:1px solid var(--color-rule)}
+.owner-period label{max-width:240px;flex:1}.owner-period>.small{font-size:12px;text-align:right}
+.owner-store-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 32px}
+.owner-store{padding:24px 0 12px;border-top:2px solid var(--color-rule);min-width:0}
+.owner-store-heading{display:flex;align-items:center;justify-content:space-between;gap:12px}.owner-store h3{font-size:20px;margin:0;min-width:0;overflow-wrap:break-word}
+.owner-status{font-size:12px;color:var(--color-muted);white-space:nowrap}
+.owner-views{display:flex;align-items:baseline;gap:8px;margin:24px 0 20px;flex-wrap:wrap}.owner-views>.small:first-child{flex-basis:100%;font-size:13px}.owner-views strong{font-size:36px;line-height:1.15;letter-spacing:-.03em;color:var(--color-accent-deep);font-variant-numeric:tabular-nums}
+.owner-metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin:0 0 18px}.owner-metrics dt{font-size:13px;color:var(--color-muted)}.owner-metrics dd{margin:6px 0 0;font-size:19px;font-weight:600;font-variant-numeric:tabular-nums}
+.management-tools{margin-top:32px}.management-tools .overview-strip{margin-top:18px}.environment{font-size:12px}
+.view-nav{gap:24px}.trend-options{grid-column:1/-1;margin:0}.trend-extra{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;padding:12px 0}
+@media(max-width:640px){
+ .view-nav{grid-template-columns:repeat(3,minmax(0,1fr));gap:0}
+ .owner-store-list{grid-template-columns:minmax(0,1fr);gap:8px}.owner-store{padding:22px 0 8px}.owner-views strong{font-size:36px}.owner-views{margin:18px 0}
+ .owner-period{align-items:center;margin:0 0 20px;gap:12px}.owner-period>.small{max-width:140px;font-size:11px}.owner-period label{font-size:13px}
+ .trend-filters{grid-template-columns:repeat(2,minmax(0,1fr))}.trend-filters>label:last-of-type{grid-column:1/-1}.trend-extra{grid-template-columns:minmax(0,1fr);gap:12px}
+ .management-tools{order:4}.results-section{order:1}.owner-period{order:0}.owner-store .data-table{font-size:13px}
 }
