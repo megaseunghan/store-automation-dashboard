@@ -1,7 +1,7 @@
 // A point is a saved observation, never a reconstructed historical value.
-export function trendPoints(reports, { store, platform, month, mode, metric }) {
+export function trendPoints(reports, { store, platform, month, year, mode, metric }) {
   const rows = reports.flatMap(report => report.results
-    .filter(result => result.store === store && result.platform === platform && (mode === 'months' || report.month === month))
+    .filter(result => result.store === store && result.platform === platform && (!year || report.month.startsWith(`${year}-`)) && (mode === 'months' || report.month === month))
     .map(result => ({ ...result, id: report.id, month: report.month, at: result.collectedAt || report.createdAt })));
   rows.sort((a, b) => a.at.localeCompare(b.at) || a.id.localeCompare(b.id));
   const selected = mode === 'months' ? [...new Map(rows.map(row => [row.month, row])).values()].sort((a, b) => a.month.localeCompare(b.month)) : rows;

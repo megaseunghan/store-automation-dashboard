@@ -286,3 +286,19 @@ footer { border-top: 1px solid var(--color-rule); margin-top: var(--spacing-36);
  .job-accounts{font-size:14px;gap:10px}.job{font-size:14px;line-height:1.7}.report-footnote{font-size:12px}footer{font-size:13px;margin-top:24px;padding-bottom:16px}
 }
 @media screen and (max-width:360px){.environment{max-width:100px;text-align:right;line-height:1.4}.page-heading h1{font-size:21px}.view-nav a{font-size:13px}.trend-filters{grid-template-columns:minmax(0,1fr)}.trend-filters label:nth-child(3){grid-column:auto}.account-table tr{grid-template-columns:minmax(0,1fr)}.account-table td:last-child:not(.num){grid-column:1!important}.report-metrics dd{font-size:21px}}
+/* Period-first, compact summaries; evidence remains available on demand. */
+.compact-details{border-top:1px solid var(--color-rule);margin:14px 0;padding:4px 0}
+.compact-details>summary{min-height:44px;display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px;font-weight:600;color:var(--color-ink-2)}
+.compact-details>summary::before{content:'+';color:var(--color-accent,#2563eb);font-size:18px}
+.compact-details[open]>summary::before{content:'−'}
+.compact-details>p{padding:0 8px 10px;line-height:1.6}
+.period-link{display:inline-flex;align-items:center;min-height:44px;font-weight:600;margin-top:12px;color:var(--color-accent,#2563eb)}
+.trend-filters{grid-template-columns:repeat(3,minmax(0,1fr))}
+.report-account .report-metrics .small{font-size:11px}
+@media(max-width:640px){.trend-filters{grid-template-columns:repeat(2,minmax(0,1fr))}.page-heading h1{font-size:26px}.analysis-summary{margin-top:16px}.report-account{padding-top:20px}.report-cover h3{font-size:22px}}
+@media screen and (max-width:640px){
+ .trend-filters{gap:10px;margin:16px 0}.trend-filters label:nth-child(3){grid-column:auto}
+ .analysis-summary{grid-template-columns:minmax(0,1.4fr) minmax(0,1fr)}
+ .analysis-summary>div{padding:14px 0;gap:6px}.analysis-summary>div+div{border-top:0;border-left:1px solid var(--color-rule);padding-left:12px}
+ .analysis-summary strong{font-size:26px}.analysis-summary .small{font-size:11px;line-height:1.5}
+}

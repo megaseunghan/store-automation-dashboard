@@ -100,7 +100,7 @@ function resultRow(result, showStore = true) {
 const resultHeaders = [['매장 / 플랫폼'], ['인정', true], ['조회', true], ['저장', true], ['공유', true], ['상태']];
 function renderLatest() {
   if (!snapshot) return;
-  const period = $('#month').value; $('#latestPeriod').textContent = `${period} 대상, 계정별 가장 최근 실행 결과. 점수 반영 전입니다.`;
+  const period = $('#month').value; $('#latestPeriod').textContent = `${period} · 최근 수집값`;
   const latest = new Map();
   for (const report of [...snapshot.reports].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))) {
     if (report.month !== period) continue;
@@ -133,7 +133,7 @@ function renderReports() {
     summary.append(main); const body = el('div', undefined, 'report-body'); const grid = table(resultHeaders);
     for (const result of results) grid.querySelector('tbody').append(resultRow(result)); body.append(grid);
     const links = reportActions(report);
-    body.append(links, el('p', '평가 점수는 보류 상태입니다. 누락과 원자료를 검토한 뒤 반영합니다.', 'small')); row.append(summary, body); target.append(row);
+    body.append(links); row.append(summary, body); target.append(row);
   }
   $('#reportCount').textContent = `${count}개 실행 기록`;
   if (!count) target.append(el('p', source.length ? '선택한 조건의 기록이 없습니다. 필터를 바꾸거나 초기화해 주세요.' : $('#recordState').value === 'trash' ? '휴지통이 비어 있습니다.' : '아직 API로 수집한 기록이 없습니다. 계정을 연결한 뒤 첫 수집을 실행해 주세요.', 'empty'));
@@ -206,7 +206,7 @@ async function refresh() {
         const list = el('ul', undefined, 'job-accounts');
         for (const account of work.accounts || []) list.append(el('li', `${account.storeName} / ${platformName(account.platform)} · ${{ collected: '수집 완료', partial: '일부 수집 · 확인 필요', failed: '수집 실패' }[account.status]}`));
         for (const account of work.skipped || []) list.append(el('li', `${account.storeName} / ${platformName(account.platform)} · 미연결로 건너뜀`));
-        job.append(list);
+        const details = el('details', undefined, 'compact-details'); details.open = ['partial', 'failed'].includes(work.status); details.append(el('summary', '매장별 결과'), list); job.append(details);
       }
       if (work.status === 'queued' && isCloud) {
         const cancel = el('button', '대기 요청 취소', 'button-quiet'); cancel.type = 'button';

@@ -9,9 +9,12 @@ const metricNames = { views: '조회 수', saved: '저장 수', shares: '공유 
 let context, state, detailVersion = 0;
 export function initReporting(config) {
   context = config;
-  for (const id of ['trendStore', 'trendPlatform', 'trendMode', 'trendMonth', 'trendMetric']) {
+  for (const id of ['trendYear', 'trendStore', 'trendPlatform', 'trendMode', 'trendMonth', 'trendMetric']) {
     $('#' + id).addEventListener('change', () => {
-      context.writeUrl({ [id]: $('#' + id).value }); renderTrends();
+      const changes = { [id]: $('#' + id).value };
+      if (id === 'trendYear') { $('#trendMonth').value = `${$('#trendYear').value}-${$('#trendMonth').value.slice(5) || '01'}`; changes.trendMonth = $('#trendMonth').value; }
+      if (id === 'trendMonth') { const year = $('#trendMonth').value.slice(0, 4); if (!year) return; if (![...$('#trendYear').options].some(o => o.value === year)) { const option = node('option', `${year}년`); option.value = year; $('#trendYear').append(option); } $('#trendYear').value = year; changes.trendYear = year; }
+      context.writeUrl(changes); renderTrends();
     });
   }
   $('#trendFilters').addEventListener('submit', event => event.preventDefault());
@@ -24,6 +27,8 @@ export function initReporting(config) {
 export function updateReporting(snapshot) {
   state = snapshot;
   if (!$('#trendStore').options.length) for (const store of snapshot.stores) { const option = node('option', store.name); option.value = store.id; $('#trendStore').append(option); }
+  const years = [...new Set([snapshot.previousMonth.slice(0, 4), ...snapshot.reports.map(r => r.month.slice(0, 4))])].sort().reverse();
+  $('#trendYear').replaceChildren(...years.map(year => { const option = node('option', `${year}년`); option.value = year; return option; }));
   syncReporting();
 }
 export function syncReporting() {
@@ -34,6 +39,11 @@ export function syncReporting() {
     control.value = [...control.options].some(option => option.value === value) ? value : control.options[0].value;
   }
   $('#trendMonth').value = /^(?!0000)\d{4}-(0[1-9]|1[0-2])$/.test(params.get('trendMonth') || '') ? params.get('trendMonth') : state.previousMonth;
+  const requestedYear = params.get('trendYear');
+  const year = /^(?!0000)\d{4}$/.test(requestedYear || '') ? requestedYear : $('#trendMonth').value.slice(0, 4);
+  if (![...$('#trendYear').options].some(o => o.value === year)) { const option = node('option', `${year}년`); option.value = year; $('#trendYear').append(option); }
+  $('#trendYear').value = year;
+  $('#trendMonth').value = `${year}-${$('#trendMonth').value.slice(5)}`;
   renderTrends();
   if (params.get('view') === 'report') void renderDetail(params.get('report'));
   else detailVersion++;
@@ -115,20 +125,25 @@ function renderTrends() {
   const platform = $('#trendPlatform').value, mode = $('#trendMode').value, metric = $('#trendMetric').value;
   $('#trendMonthLabel').hidden = mode === 'months';
   const target = $('#trendContent'); target.replaceChildren();
-  const points = trendPoints(state.reports, { store, platform, month: $('#trendMonth').value, mode, metric });
-  target.append(node('p', mode === 'months' ? '월마다 게시한 콘텐츠의 최근 누적값입니다. 관측일과 콘텐츠 수가 다르므로 같은 기간 성과로 해석하지 마세요. 팔로워는 해당 실행 시점 값입니다.' : '선택한 월에 게시한 콘텐츠를 다시 수집할 때 쌓이는 누적값입니다. 해당 날짜의 하루 실적이나 과거 월초 수치가 아닙니다.', 'analysis-note'));
-  if (!points.length) { target.append(node('p', '이 조건의 수집 기록이 없습니다. 수집 후 실제 관측값부터 그래프에 표시합니다.', 'empty')); return; }
+  const points = trendPoints(state.reports, { store, platform, month: $('#trendMonth').value, year: $('#trendYear').value, mode, metric });
+  const basis = node('details', undefined, 'compact-details'); basis.append(node('summary', '집계 기준'), node('p', '선택한 월에 게시한 콘텐츠의 수집 시점 누적값입니다. 월별 콘텐츠·관측일이 달라 증감률은 계산하지 않습니다. 미수집은 0이 아니며, 팔로워는 수집 시점 값입니다.', 'small'));
+  if (!points.length) { target.append(node('p', '이 기간의 수집 기록이 없습니다.', 'empty')); return; }
   const latest = points.at(-1), previous = points.at(-2), change = pointChange(previous, latest, mode);
   const summary = node('div', undefined, 'analysis-summary');
-  const value = node('div'); value.append(node('span', `최근 ${metricNames[metric]}`, 'small'), node('strong', number(latest.value)), node('span', `${latest.month} 대상 · ${date(latest.at)} 관측`, 'small'));
-  const delta = node('div'); delta.append(node('span', '직전 관측 대비', 'small'), node('strong', change.delta === null ? '비교 보류' : `${change.delta > 0 ? '+' : ''}${number(change.delta)}`, 'change-value'), node('span', change.text, 'small'));
+  const value = node('div'); value.append(node('span', `최근 ${metricNames[metric]}`, 'small'), node('strong', number(latest.value)), node('span', `${latest.month} 게시물 · 누적값`, 'small'));
+  const delta = node('div');
+  if (mode === 'months') delta.append(node('span', `${$('#trendYear').value}년 수집 월`, 'small'), node('strong', `${points.length} / 12`), node('span', '기록이 있는 월만 표시', 'small'));
+  else delta.append(node('span', '직전 수집 대비', 'small'), node('strong', change.delta === null ? '비교 보류' : `${change.delta > 0 ? '+' : ''}${number(change.delta)}`, 'change-value'));
+  if (mode !== 'months') basis.append(node('p', change.text, 'small'));
   summary.append(value, delta); target.append(summary, drawChart(points, metric, mode));
-  target.append(node('p', `${points.length}개 관측 기록 · 빈 값은 미수집으로 표시합니다. 빈 원은 일부 수집이며, 미수집 지점의 선은 연결하지 않습니다.${points.length < 2 ? ' 변화 비교에는 두 번 이상의 수집이 필요합니다.' : ''}`, 'small'));
-  target.append(readableTable(['대상 월', '관측 시각 (한국)', metricNames[metric], '집계 범위', '근거'], points.map(p => {
+  basis.append(node('p', `${points.length}개 관측 기록 · 빈 값은 미수집으로 표시합니다. 빈 원은 일부 수집이며, 미수집 지점의 선은 연결하지 않습니다.${points.length < 2 ? ' 변화 비교에는 두 번 이상의 수집이 필요합니다.' : ''}`, 'small'));
+  const records = node('details', undefined, 'compact-details'); records.open = mode === 'months'; records.append(node('summary', '월별 수치 · 수집 근거'));
+  records.append(readableTable(['대상 월', '관측 시각 (한국)', metricNames[metric], '집계 범위', '근거'], points.map(p => {
     const link = node('a', '보고서', 'text-link'); link.href = `?view=report&report=${p.id}`;
     link.addEventListener('click', event => { if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return; event.preventDefault(); context.writeUrl({ view: 'report', report: p.id }); context.syncView(); syncReporting(); $('#detail-title').focus(); });
     return [p.month, date(p.at), number(p.value), p.status === 'failed' ? '수집 실패' : `${p.summary.included}건 인정 · ${p.incomplete ? '누락 또는 목록 불완전' : '확인 완료'}`, link];
   })));
+  target.append(records, basis);
 }
 function safePostLink(item) {
   try { const url = new URL(item.url); if (!['https:', 'http:'].includes(url.protocol)) return node('span', '링크 없음'); const a = node('a', '원문 열기', 'text-link'); a.href = url.href; a.target = '_blank'; a.rel = 'noreferrer'; return a; }
@@ -154,7 +169,7 @@ async function renderDetail(id) {
       try { await navigator.clipboard.writeText(await apiText(`/api/report/${id}/markdown`)); context.message('텍스트 보고서를 복사했습니다.'); }
       catch { context.message('복사하지 못했습니다. 텍스트 보고서를 열어 직접 복사해 주세요.', true); }
     }); toolbar.append(copy); if (summary) toolbar.append(reportActions(summary, { showOpen: false })); target.append(toolbar);
-    target.append(node('p', '집계 기준: 해당 월에 게시한 콘텐츠의 수집 시점 누적 실적. 점수는 승인 전이며, 미수집은 0으로 바꾸지 않습니다.', 'analysis-note'));
+    const basis = node('details', undefined, 'compact-details'); basis.append(node('summary', '집계 기준'), node('p', '해당 월에 게시한 콘텐츠의 수집 시점 누적 실적입니다. 미수집은 0이 아니며, 점수는 승인 전입니다.', 'small')); target.append(basis);
     for (const result of report.results) {
       const section = node('section', undefined, 'report-account');
       section.append(node('h3', `${result.storeName} / ${platformName(result.platform)}`), node('p', `@${result.username || '계정명 미기록'} · ${date(result.collectedAt || report.createdAt)} 관측 · ${result.status === 'failed' ? '수집 실패' : result.status === 'partial' ? '일부 수집' : '수집 완료'} · 목록 ${result.listComplete ? '확인 완료' : '완전성 미확인'}`, 'small'));
@@ -167,15 +182,15 @@ async function renderDetail(id) {
       ]) { const div = node('div'); div.append(node('dt', label), node('dd', value), node('span', note, 'small')); metrics.append(div); } section.append(metrics);
       const issues = [...new Set((result.issues || []).map(issue => typeof issue === 'string' ? issue : JSON.stringify(issue)))];
       if (issues.length) { const details = node('details', undefined, 'quality-details'); details.open = result.status === 'failed'; details.append(node('summary', `확인 사항 ${issues.length}건`)); const list = node('ul'); for (const issue of issues) list.append(node('li', issue)); details.append(list); section.append(details); }
-      section.append(node('h4', '콘텐츠별 집계 근거'));
-      if (!result.items?.length) section.append(node('p', result.status === 'failed' || !result.listComplete ? '게시물 목록을 확인하지 못했습니다. 0건으로 판정하지 않습니다.' : '확인된 대상 월의 게시물이 없습니다.', 'empty'));
-      else section.append(readableTable(['게시일 / 콘텐츠', '판정', '조회', '저장', '공유', '원문'], result.items.map(item => {
+      const evidence = node('details', undefined, 'compact-details'); evidence.append(node('summary', `게시물별 근거 · ${result.items?.length || 0}건`));
+      if (!result.items?.length) evidence.append(node('p', result.status === 'failed' || !result.listComplete ? '게시물 목록을 확인하지 못했습니다. 0건으로 판정하지 않습니다.' : '확인된 대상 월의 게시물이 없습니다.', 'empty'));
+      else evidence.append(readableTable(['게시일 / 콘텐츠', '판정', '조회', '저장', '공유', '원문'], result.items.map(item => {
         const content = node('div'); content.append(node('span', `${date(item.timestamp)} · ${item.type || '유형 미기록'}`), node('p', item.caption || '(본문 없음)', 'post-caption'));
         const eligibility = { included: '인정', review: '검토 필요', excluded: '제외' }[item.eligibility] || '미확인'; const decision = node('div'); decision.append(node('strong', eligibility), node('p', item.reason || '', 'small'));
         if (item.issues?.length) decision.append(node('p', item.issues.join(' / '), 'small'));
         return [content, decision, number(item.metrics?.views), number(item.metrics?.saved), number(item.metrics?.shares), safePostLink(item)];
       }), 'posts-table'));
-      target.append(section);
+      section.append(evidence); target.append(section);
     }
     target.append(node('p', `실행 ID ${report.id} · 원자료와 텍스트 보고서를 함께 보존합니다.`, 'report-footnote'));
   } catch (error) { if (version === detailVersion) target.replaceChildren(node('p', `${error.message} 새로고침으로 다시 시도해 주세요.`, 'empty')); }
