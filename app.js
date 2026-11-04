@@ -260,9 +260,18 @@ for (const id of ['showShare', 'rotateShare']) $('#' + id).addEventListener('cli
   catch (error) { message(error.message, true); } finally { busy = false; lockControls(); }
 });
 renderAutomations(); syncView();
-const accessKey = new URLSearchParams(location.hash.slice(1)).get('access');
-if (accessKey) {
+let accessLinkVersion = 0;
+async function consumeAccessLink() {
+  const accessKey = new URLSearchParams(location.hash.slice(1)).get('access');
+  if (!accessKey) return false;
+  const version = ++accessLinkVersion;
   history.replaceState(null, '', location.pathname + location.search);
-  try { await api('/api/session', { key: accessKey }); } catch (error) { message(error.message, true); }
+  try {
+    const session = await api('/api/session', { key: accessKey });
+    if (version !== accessLinkVersion) return false;
+    snapshot = null; csrf = ''; readOnly = session.role === 'viewer'; lockControls(); message(''); return true;
+  } catch (error) { if (version === accessLinkVersion) message(error.message, true); return false; }
 }
+window.addEventListener('hashchange', async () => { if (await consumeAccessLink()) await refresh(); });
+await consumeAccessLink();
 await refresh();
