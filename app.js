@@ -1,6 +1,6 @@
-import { apiRequest, isCloud } from './client.js';
-import { AUTOMATIONS } from './modules.js';
-import { initReporting, updateReporting, syncReporting, reportActions } from './reporting.js';
+import { apiRequest, isCloud } from './client.js?v=bca88bf62fdf';
+import { AUTOMATIONS } from './modules.js?v=bca88bf62fdf';
+import { initReporting, updateReporting, syncReporting, reportActions } from './reporting.js?v=bca88bf62fdf';
 let csrf = '', busy = false, refreshTimer, activeView;
 let readOnly = false;
 let stores = [], lastPlatform = 'instagram', snapshot = null, refreshVersion = 0;
