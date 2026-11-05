@@ -11,8 +11,8 @@
 /* Hallmark · dismissed kept · store headings are now ledger row labels; all 27 links and 8 fields are retained; historical figures remain in expandable execution records and raw reports */
 /* Hallmark · reworded "월별 수집" to "매장 마케팅 수집" · 19 names the actual task inside the dashboard */
 /* Hallmark · reworded "기존 월간·DM 예약의 전환과 API 자동 실행은 연결 대조 후 진행합니다." to "기존 월간 예약과 메시지 점검 예약의 자동 실행은 연결 대조 후 전환합니다." · 67 keeps sentence case in the body face */
-@import url('./tokens.css?v=1981a61c1c33');
-@import url('./base.css?v=1981a61c1c33');
+@import url('./tokens.css?v=09257e77be1b');
+@import url('./base.css?v=09257e77be1b');
 :root {
  --spacing-2: 2px;
  --spacing-3: 3px;
@@ -321,3 +321,17 @@ footer { border-top: 1px solid var(--color-rule); margin-top: var(--spacing-36);
  .trend-filters{grid-template-columns:repeat(2,minmax(0,1fr))}.trend-filters>label:last-of-type{grid-column:1/-1}.trend-extra{grid-template-columns:minmax(0,1fr);gap:12px}
  .management-tools{order:4}.results-section{order:1}.owner-period{order:0}.owner-store .data-table{font-size:13px}
 }
+
+/* UI/UX Pro Max: score first, direct labels, expandable evidence. */
+.score-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;margin-top:20px}
+.score-card{background:var(--color-surface);border:1px solid var(--color-rule);border-radius:12px;padding:24px;min-width:0}
+.score-card-head{display:flex;align-items:center;justify-content:space-between;gap:12px}.score-card h3{font-size:19px;line-height:1.4;margin:0;overflow-wrap:break-word}.score-state{font-size:12px;color:var(--color-muted);white-space:nowrap}
+.score-number{display:flex;align-items:baseline;gap:8px;margin:24px 0 8px;color:var(--color-accent-deep);font-variant-numeric:tabular-nums}.score-number strong{font-size:56px;line-height:1;letter-spacing:-.04em;font-weight:750}.score-number>span{font-size:18px;font-weight:600}
+.score-caption{font-size:12px;color:var(--color-muted);margin:0 0 24px;line-height:1.6}
+.score-breakdown{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:0;padding-bottom:20px}.score-breakdown>div+div{border-left:1px solid var(--color-rule);padding-left:12px}.score-breakdown dt{font-size:13px;color:var(--color-muted);margin-bottom:8px}.score-breakdown dd{font-size:21px;font-weight:650;margin:0;overflow-wrap:anywhere}
+.score-detail{border-top:1px solid var(--color-rule)}.score-detail>summary{display:flex;align-items:center;justify-content:space-between;gap:12px;cursor:pointer;min-height:52px;font-size:14px;font-weight:600;list-style:none}.score-detail>summary::-webkit-details-marker{display:none}.score-detail>summary::after{content:'+';font-size:20px;color:var(--color-accent)}.score-detail[open]>summary::after{content:'−'}.score-count{margin-left:auto;color:var(--color-muted);font-size:13px;font-weight:400}
+.score-reasons{padding:8px 0 20px;line-height:1.7}.score-reasons h4,.score-posts h4{font-size:15px;margin:8px 0 14px}.score-reasons>p{font-size:14px;margin:8px 0}.score-reasons>.score-note{font-size:12px;color:var(--color-muted)}
+.score-posts{border-top:1px solid var(--color-rule);padding-top:16px}.score-post{padding:16px 0;border-top:1px solid var(--color-rule)}.score-post-meta{display:flex;align-items:center;flex-wrap:wrap;gap:8px 12px;font-size:12px;color:var(--color-muted)}.score-post-meta strong{margin-left:auto;color:var(--color-accent-deep);font-size:14px}.score-post-title{font-size:15px;line-height:1.6;margin:10px 0;overflow-wrap:anywhere}.score-note{font-size:12px;color:var(--color-muted);line-height:1.7;overflow-wrap:anywhere;margin:6px 0}.score-footnote{font-size:13px;line-height:1.6;color:var(--color-muted);margin-top:20px}
+.score-detail>summary:hover{color:var(--color-accent-deep)}.score-detail>summary:active{background:var(--color-accent-soft)}.score-detail>summary:focus-visible{outline:2px solid var(--color-accent);outline-offset:3px;border-radius:4px}
+@media(max-width:640px){.score-grid{grid-template-columns:minmax(0,1fr);gap:16px;margin-top:16px}.score-card{padding:20px}.score-card h3{font-size:18px}.score-number{margin-top:22px}.score-number strong{font-size:52px}.score-caption{font-size:12px;margin-bottom:20px}.score-breakdown dd{font-size:22px}.score-reasons>p{font-size:14px}.score-post-title{font-size:15px}.score-card-head{align-items:baseline}}
+@media(prefers-reduced-motion:reduce){.score-card,.score-detail>summary{transition:none;animation:none}}

@@ -1,6 +1,7 @@
-import { apiRequest, isCloud } from './client.js?v=1981a61c1c33';
-import { AUTOMATIONS } from './modules.js?v=1981a61c1c33';
-import { initReporting, updateReporting, syncReporting, reportActions } from './reporting.js?v=1981a61c1c33';
+import { createScoreWorkspace } from './score-ui.js?v=09257e77be1b';
+import { apiRequest, isCloud } from './client.js?v=09257e77be1b';
+import { AUTOMATIONS } from './modules.js?v=09257e77be1b';
+import { initReporting, updateReporting, syncReporting, reportActions } from './reporting.js?v=09257e77be1b';
 let csrf = '', busy = false, refreshTimer, activeView;
 let readOnly = false;
 let stores = [], lastPlatform = 'instagram', snapshot = null, refreshVersion = 0;
@@ -11,6 +12,7 @@ const platformName = platform => platform === 'instagram' ? 'Instagram' : 'Threa
 const dateLabel = date => new Intl.DateTimeFormat('ko-KR', { timeZone: 'Asia/Seoul', year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).format(new Date(date));
 function message(text, error = false) { const box = $('#notice'); box.textContent = text; box.className = error ? 'notice error' : 'notice'; }
 const api = (path, data) => apiRequest(path, data, csrf);
+const scoreWorkspace=createScoreWorkspace({api,stores:()=>stores});
 const hasActiveJob = () => ['queued', 'running'].includes(snapshot?.job?.status);
 
 function updateRoute() {
@@ -101,42 +103,11 @@ const resultHeaders = [['매장 / 플랫폼'], ['인정', true], ['조회', true
 function renderLatest() {
   if (!snapshot) return;
   const period = $('#month').value; $('#latestPeriod').textContent = `${period.split('-')[0]}년 ${Number(period.split('-')[1])}월 게시물 기준`;
-  const latest = new Map();
-  for (const report of [...snapshot.reports].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))) {
-    if (report.month !== period) continue;
-    for (const result of report.results) { const key = `${result.storeName}:${result.platform}`; if (!latest.has(key)) latest.set(key, result); }
-  }
-  const target = $('#latestResults'); target.replaceChildren(); target.setAttribute('aria-busy', 'false');
-  $('#ownerUpdated').textContent='';
-  if (!latest.size) { target.append(el('p', '이 달의 실적이 아직 없습니다.', 'empty')); return; }
-  const cards = el('div', undefined, 'owner-store-list');
-  for (const store of stores) {
-    const platforms = store.threads ? ['instagram','threads'] : ['instagram'];
-    const results = platforms.map(platform => latest.get(`${store.name}:${platform}`));
-    const available = results.filter(Boolean);
-    const complete = available.length === platforms.length && available.every(r => r.status === 'collected' && r.listComplete);
-    const total = key => {
-      const values = available.filter(r => r.status !== 'failed').map(r => r.summary.metrics[key]);
-      return {value: values.some(m => Number.isFinite(m?.total)) ? values.reduce((sum,m) => sum + (Number.isFinite(m?.total) ? m.total : 0),0) : null,
-        partial: !complete || values.some(m => m?.missing > 0 || !Number.isFinite(m?.total))};
-    };
-    const views=total('views'), shares=total('shares');
-    const noPosts=complete&&available.every(r=>r.summary.included===0&&!r.summary.pending);
-    const attention=!complete||views.partial||shares.partial||available.some(r=>r.status!=='collected'||r.summary.pending);
-    const card = el('article',undefined,'owner-store');
-    const heading = el('div',undefined,'owner-store-heading');heading.append(el('h3',store.name),el('span',!available.length?'자료 없음':noPosts?'인정 게시물 없음':attention?'확인 필요':'확인 완료','owner-status'));card.append(heading);
-    const hero = el('div',undefined,'owner-views');hero.append(el('span','조회 수','small'),el('strong',views.value===null?'—':views.value.toLocaleString('ko-KR')),el('span',views.value===null?(noPosts?'집계 대상 없음':'미확인'):views.partial?'일부 확인':'회','small'));card.append(hero);
-    const metrics = el('dl',undefined,'owner-metrics');
-    const count = complete ? available.reduce((sum,r)=>sum+r.summary.included,0) : null;
-    for(const [label,value] of [['인정 게시물',count===null?'미확인':`${count}건`],['공유',shares.value===null?'미확인':`${shares.value.toLocaleString('ko-KR')}${shares.partial?' (일부)':'회'}`]]){const entry=el('div');entry.append(el('dt',label),el('dd',value));metrics.append(entry);}card.append(metrics);
-    const detail=el('details',undefined,'compact-details');detail.append(el('summary','자세히 보기'));const grid=table(resultHeaders);for(const result of available)grid.querySelector('tbody').append(resultRow(result,false));
-    if(available.length)detail.append(grid);else detail.append(el('p','아직 확인된 자료가 없습니다.','empty'));
-    for(const platform of platforms.filter((_,i)=>!results[i]))detail.append(el('p',`${platformName(platform)} 자료 없음`,'small'));
-    card.append(detail);cards.append(card);
-  }
-  target.append(cards);
+  const target=$('#latestResults');
+  if(!validMonth(period)){scoreWorkspace.cancel();target.replaceChildren(el('p','보고 싶은 월을 선택해 주세요.','empty'));return;}
   const last=[...snapshot.reports].filter(r=>r.month===period).sort((a,b)=>b.createdAt.localeCompare(a.createdAt))[0];
   $('#ownerUpdated').textContent=last?`${dateLabel(last.createdAt)} 업데이트`:'';
+  void scoreWorkspace.render(snapshot,period,target).catch(()=>{target.replaceChildren(el('p','점수를 불러오지 못했습니다. 새로고침해 주세요.','empty'));});
 }
 function renderReports() {
   if (!snapshot) return;
