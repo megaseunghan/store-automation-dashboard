@@ -11,8 +11,8 @@
 /* Hallmark · dismissed kept · store headings are now ledger row labels; all 27 links and 8 fields are retained; historical figures remain in expandable execution records and raw reports */
 /* Hallmark · reworded "월별 수집" to "매장 마케팅 수집" · 19 names the actual task inside the dashboard */
 /* Hallmark · reworded "기존 월간·DM 예약의 전환과 API 자동 실행은 연결 대조 후 진행합니다." to "기존 월간 예약과 메시지 점검 예약의 자동 실행은 연결 대조 후 전환합니다." · 67 keeps sentence case in the body face */
-@import url('./tokens.css?v=09257e77be1b');
-@import url('./base.css?v=09257e77be1b');
+@import url('./tokens.css?v=8d292d65d89f');
+@import url('./base.css?v=8d292d65d89f');
 :root {
  --spacing-2: 2px;
  --spacing-3: 3px;

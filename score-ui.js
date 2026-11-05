@@ -1,4 +1,4 @@
-import {marketingScore,SCORE_BANDS,bonusReason} from './scoring.js?v=09257e77be1b';
+import {marketingScore,SCORE_BANDS,bonusReason} from './scoring.js?v=8d292d65d89f';
 const node=(tag,text,cls)=>{const n=document.createElement(tag);if(text!==undefined)n.textContent=text;if(cls)n.className=cls;return n;};
 const num=n=>Number.isFinite(n)?n.toLocaleString('ko-KR',{maximumFractionDigits:2}):'미확인';
 const signed=n=>n>0?'+'+n:String(n);
@@ -29,7 +29,7 @@ export function createScoreWorkspace({api,stores}){
    why.append(node('p',s.reviewPoints===null?'네이버 리뷰: 해당 월 자료 확인 필요':`네이버 리뷰 ${s.reviewCount}건 → ${s.reviewCount>=100?'100건 이상':s.reviewCount>=80?'80~99건':s.reviewCount>=60?'60~79건':s.reviewCount>=40?'40~59건':s.reviewCount>=20?'20~39건':s.reviewCount>=10?'10~19건':'0~9건'} 구간 ${s.reviewPoints}점`));why.append(node('p',s.reason));
    const band=SCORE_BANDS.find(b=>b.grade===s.performanceGrade);if(band)why.append(node('p',`성과 ${band.grade} 기준: 평균 조회 ${num(band.views)}회 이상 / 저장+공유 ${num(band.actions)}회 이상`,'score-note'));
    if(s.count>0){why.append(node('p',`조회 평균 ${num(s.viewAverage)}회`));why.append(node('p',`저장+공유 평균 ${num(s.actionAverage)}회${s.actionMissing?' 이상 (확인된 수치 기준)':''}`));}
-   why.append(node('p',s.complete?`확인된 콘텐츠 가산점 ${signed(s.bonus)}점${!s.bonusComplete?' / 미확인 항목 있음':''}`:'콘텐츠 목록 확인 후 가산점 계산'));
+   why.append(node('p',s.complete?`콘텐츠별 가산점 합계 ${signed(s.bonus)}점${!s.bonusComplete?' / 미확인 항목 있음':''}`:'콘텐츠 목록 확인 후 가산점 계산'));
    for(const note of s.notes)why.append(node('p',note,'score-note'));if(facts.status==='rejected')why.append(node('p','리뷰 점수 근거를 불러오지 못했습니다. 새로고침해 주세요.','score-note'));details.append(why);
    const posts=node('div',undefined,'score-posts');posts.append(node('h4','점수에 포함한 게시물'));
    if(!s.posts.length)posts.append(node('p',s.count===0?'인정된 게시물이 없습니다.':'목록을 확인하지 못했습니다.','score-note'));

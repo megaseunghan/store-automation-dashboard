@@ -1,5 +1,5 @@
 // HR book plus user-confirmed upload cap, combined averages and single-content bonuses.
-export const SCORE_RULE_VERSION='2026-11-05';
+export const SCORE_RULE_VERSION='2026-11-05-content-bonus-pending-performance';
 export const SCORE_BANDS=[{grade:'S',count:10,views:30000,actions:200,points:20},{grade:'A',count:8,views:20000,actions:150,points:15},{grade:'B',count:6,views:10000,actions:100,points:10},{grade:'C',count:4,views:5000,actions:50,points:6},{grade:'D',count:2,views:1000,actions:10,points:3}];
 const finite=n=>Number.isFinite(n)&&n>=0;
 export const reviewPoints=count=>!Number.isSafeInteger(count)||count<0?null:count>=100?10:count>=80?8:count>=60?7:count>=40?5:count>=20?3:count>=10?1:0;
@@ -42,11 +42,15 @@ export function marketingScore(store,month,results,inputs={}) {
   }else if(upload.grade==='F'){sns=-3;reason=`${count}건 업로드 → F구간 −3점`;}
   else if(viewAverage!==null){
    const lower=SCORE_BANDS.find(b=>viewAverage>=b.views&&actionAverage>=b.actions)||{grade:'F',points:-3};
-   const upper=actionMissing?(SCORE_BANDS.find(b=>viewAverage>=b.views)||{grade:'F',points:-3}):lower;
-   if(Math.min(upload.points,lower.points)===Math.min(upload.points,upper.points)){
-    sns=Math.min(upload.points,lower.points);performanceGrade=lower.grade;
-    reason=`${count}건 업로드 → ${upload.grade}구간 상한 ${upload.points}점 / 성과 ${lower.grade}등급 ${lower.points}점 → 적용 ${sns}점`;
-   }else reason='저장·공유 미확인으로 성과 등급 확인 필요';
+   // The owner must confirm whether either performance metric or both are required.
+   // Publish a score only when every possible interpretation yields the same capped result.
+   const viewBand=band(viewAverage,'views'),actionBand=band(actionAverage,'actions');
+   const possibleHigh=actionMissing?20:Math.max(viewBand.points,actionBand.points);
+   const lowScore=Math.min(upload.points,lower.points),highScore=Math.min(upload.points,possibleHigh);
+   if(lowScore===highScore){
+    sns=lowScore;performanceGrade=lower.grade;
+    reason=`${count}건 업로드 → ${upload.grade}구간 상한 ${upload.points}점 / 확인된 성과로 적용 ${sns}점`;
+   }else reason=`성과 기준 사장님 확인 대기 · 적용 가능 ${lowScore}~${highScore}점 (업로드 상한 ${upload.points}점)`;
   }else reason='조회 수 미확인으로 성과 등급 확인 필요';
  }
  const posts=included.map(item=>({...item,bonus:contentBonus(item)}));

@@ -1,7 +1,7 @@
-import { createScoreWorkspace } from './score-ui.js?v=09257e77be1b';
-import { apiRequest, isCloud } from './client.js?v=09257e77be1b';
-import { AUTOMATIONS } from './modules.js?v=09257e77be1b';
-import { initReporting, updateReporting, syncReporting, reportActions } from './reporting.js?v=09257e77be1b';
+import { createScoreWorkspace } from './score-ui.js?v=8d292d65d89f';
+import { apiRequest, isCloud } from './client.js?v=8d292d65d89f';
+import { AUTOMATIONS } from './modules.js?v=8d292d65d89f';
+import { initReporting, updateReporting, syncReporting, reportActions } from './reporting.js?v=8d292d65d89f';
 let csrf = '', busy = false, refreshTimer, activeView;
 let readOnly = false;
 let stores = [], lastPlatform = 'instagram', snapshot = null, refreshVersion = 0;
