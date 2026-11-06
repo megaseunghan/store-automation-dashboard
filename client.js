@@ -1,4 +1,4 @@
-import { RUNTIME } from './runtime-config.js?v=8d292d65d89f';
+import { RUNTIME } from './runtime-config.js?v=9e9bcb948d44';
 export function createTransport(config, { fetcher = fetch, storage = null } = {}) {
   const cloud = config.mode === 'cloud';
   let memorySession = null, sessionVersion = 0;
@@ -11,7 +11,7 @@ export function createTransport(config, { fetcher = fetch, storage = null } = {}
     if (base.protocol !== 'https:' || base.username || base.password || base.search || base.hash) throw new Error('공유 서버 주소를 확인해 주세요.');
     return base.href.replace(/\/$/, '') + path.replace(/^\/api/, '');
   };
-  async function request(path, data, { csrf = '', text = false } = {}) {
+  async function request(path, data, { csrf = '', text = false, signal, timeoutMs = 0 } = {}) {
     const loginVersion = path === '/api/session' ? ++sessionVersion : null;
     const requestSessionVersion = sessionVersion, requestToken = cloud ? readSession() : '';
     const headers = {};
@@ -19,16 +19,24 @@ export function createTransport(config, { fetcher = fetch, storage = null } = {}
       if (requestToken) headers.Authorization = `Bearer ${requestToken}`;
     } else if (data !== undefined) headers['X-CSRF-Token'] = csrf;
     if (data !== undefined) headers['Content-Type'] = 'application/json';
-    const response = await fetcher(endpoint(path), { method: data === undefined ? 'GET' : 'POST', headers, ...(cloud ? { credentials: 'omit' } : {}), ...(data !== undefined ? { body: JSON.stringify(data) } : {}) });
+    const controller=signal||(Number.isFinite(timeoutMs)&&timeoutMs>0)?new AbortController():null;
+    let timedOut=false,timer;
+    const forwardAbort=()=>controller.abort(signal.reason);
+    if(signal){if(signal.aborted)forwardAbort();else signal.addEventListener('abort',forwardAbort,{once:true});}
+    if(controller&&Number.isFinite(timeoutMs)&&timeoutMs>0)timer=setTimeout(()=>{timedOut=true;controller.abort(new DOMException('요청 시간이 초과되었습니다. 다시 시도해 주세요.','TimeoutError'));},timeoutMs);
+    try {
+    const response = await fetcher(endpoint(path), { method: data === undefined ? 'GET' : 'POST', headers, ...(controller ? {signal:controller.signal} : {}), ...(cloud ? { credentials: 'omit' } : {}), ...(data !== undefined ? { body: JSON.stringify(data) } : {}) });
     if (!response.ok) {
       let error; try { error = (await response.json()).error; } catch { /* Non-JSON upstream failures use a visible, non-sensitive message. */ }
       if (cloud && response.status === 401 && requestSessionVersion === sessionVersion && readSession() === requestToken) writeSession('');
-      throw new Error(error || `요청에 실패했습니다. (${response.status})`);
+      const failure=new Error(error || `요청에 실패했습니다. (${response.status})`);failure.status=response.status;throw failure;
     }
     if (text) return response.text();
     const result = await response.json();
     if (cloud && path === '/api/session' && result.sessionToken && loginVersion === sessionVersion) writeSession(result.sessionToken);
     return result;
+    }catch(error){if(timedOut){const failure=new Error('요청 시간이 초과되었습니다. 다시 시도해 주세요.');failure.name='TimeoutError';throw failure;}throw error;}
+    finally{clearTimeout(timer);signal?.removeEventListener('abort',forwardAbort);}
   }
   return { request, cloud };
 }
@@ -36,7 +44,7 @@ let sessionStore;
 try { sessionStore = globalThis.sessionStorage; } catch { /* The server remains authoritative if browser storage is unavailable. */ }
 const transport = createTransport(RUNTIME, { storage: sessionStore });
 export const isCloud = transport.cloud;
-export const apiRequest = (path, data, csrf) => transport.request(path, data, { csrf });
+export const apiRequest = (path, data, csrf, options = {}) => transport.request(path, data, { ...options, csrf });
 export const apiText = path => transport.request(path, undefined, { text: true });
 export function exportLink(label, path, filename) {
   const link = document.createElement('a'); link.className = 'text-link'; link.textContent = label;

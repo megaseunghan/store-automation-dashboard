@@ -1,9 +1,10 @@
-import { createScoreWorkspace } from './score-ui.js?v=8d292d65d89f';
-import { apiRequest, isCloud } from './client.js?v=8d292d65d89f';
-import { AUTOMATIONS } from './modules.js?v=8d292d65d89f';
-import { initReporting, updateReporting, syncReporting, reportActions } from './reporting.js?v=8d292d65d89f';
+import { createScoreWorkspace } from './score-ui.js?v=9e9bcb948d44';
+import { apiRequest, isCloud } from './client.js?v=9e9bcb948d44';
+import { AUTOMATIONS } from './modules.js?v=9e9bcb948d44';
+import { initReporting, updateReporting, syncReporting, reportActions } from './reporting.js?v=9e9bcb948d44';
+import { createPLScreen } from './pl/pl-app.js?v=9e9bcb948d44';
 let csrf = '', busy = false, refreshTimer, activeView;
-let readOnly = false;
+let readOnly = false, accessPending = false;
 let stores = [], lastPlatform = 'instagram', snapshot = null, refreshVersion = 0;
 const validMonth = value => /^(?!0000)[0-9]{4}-(0[1-9]|1[0-2])$/.test(value || '');
 const $ = selector => document.querySelector(selector);
@@ -12,6 +13,7 @@ const platformName = platform => platform === 'instagram' ? 'Instagram' : 'Threa
 const dateLabel = date => new Intl.DateTimeFormat('ko-KR', { timeZone: 'Asia/Seoul', year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).format(new Date(date));
 function message(text, error = false) { const box = $('#notice'); box.textContent = text; box.className = error ? 'notice error' : 'notice'; }
 const api = (path, data) => apiRequest(path, data, csrf);
+const plScreen=createPLScreen({root:$('#plContent'),request:(path,options)=>apiRequest(path,undefined,csrf,options)});
 const scoreWorkspace=createScoreWorkspace({api,stores:()=>stores});
 const hasActiveJob = () => ['queued', 'running'].includes(snapshot?.job?.status);
 
@@ -37,13 +39,16 @@ function writeUrl(values, replace = false) {
 }
 function syncView() {
   const requested = new URL(location.href).searchParams.get('view');
-  const view = ['dashboard', 'history', 'accounts', 'trends', 'report'].includes(requested) && !(readOnly && requested === 'accounts') ? requested : 'dashboard';
+  const view = ['dashboard', 'pl', 'history', 'accounts', 'trends', 'report'].includes(requested) && !(readOnly && requested === 'accounts') ? requested : 'dashboard';
   for (const panel of document.querySelectorAll('[data-view]')) panel.hidden = panel.dataset.view !== view;
   for (const link of document.querySelectorAll('[data-view-link]')) {
     if (link.dataset.viewLink === (view === 'report' ? 'history' : view)) link.setAttribute('aria-current', 'page'); else link.removeAttribute('aria-current');
   }
   if (activeView !== view) { activeView = view; window.scrollTo({ top: 0, behavior: 'instant' }); }
-  document.title = `${({ dashboard: '월별 실적', history: '지난 보고서', accounts: '계정 설정', trends: '연간 추이', report: '상세 보고서' })[view]} | 매장 업무`;
+  document.title = `${({ dashboard: '월별 실적', pl:'손익', history: '지난 보고서', accounts: '계정 설정', trends: '연간 추이', report: '상세 보고서' })[view]} | 매장 업무`;
+  document.body.classList.toggle('pl-view-active',view==='pl');
+  document.querySelector('.page-heading h1').textContent=view==='pl'?'손익':'매장 마케팅 점수';
+  if(view==='pl'&&snapshot&&!accessPending){void plScreen.activate({role:readOnly?'viewer':'admin'});plScreen.syncURL();}
 }
 function syncFilters() {
   const params = new URL(location.href).searchParams;
@@ -164,10 +169,13 @@ function renderAccounts() {
   target.append(grid);
 }
 async function refresh() {
+  if(accessPending)return;
   const requestVersion = ++refreshVersion;
   clearTimeout(refreshTimer); $('#refreshButton').disabled = true; $('#refreshButton').setAttribute('aria-busy', 'true');
   try {
-    const status = await api('/api/status'); if (requestVersion !== refreshVersion) return; csrf = status.csrf; stores = status.stores; snapshot = status; readOnly = status.role === 'viewer';
+    const status = await api('/api/status'); if (requestVersion !== refreshVersion) return;
+    if(snapshot&&snapshot.role!==status.role)plScreen.resetSession();
+    csrf = status.csrf; stores = status.stores; snapshot = status; readOnly = status.role === 'viewer';
     $('#serverEnvironment').textContent = `${status.serverLabel || '이 컴퓨터에서 실행 중'}${readOnly ? ' · 조회 전용' : ''}`;
     document.querySelector('.view-nav [data-view-link="accounts"]').hidden = true;
     $('#accountSettingsLink').hidden = readOnly; $('#managementTools').hidden = readOnly;
@@ -217,6 +225,7 @@ async function refresh() {
     lockControls(); if (['queued', 'running'].includes(status.job?.status)) refreshTimer = setTimeout(refresh, 3000);
   } catch (error) {
     if (requestVersion !== refreshVersion) return;
+    if(error.status===401)plScreen.resetSession();
     message(`${error.message} 화면 상단의 새로고침으로 다시 시도해 주세요.`, true);
     for (const id of ['accounts', 'latestResults', 'reports', 'trendContent', 'reportDetail']) { $('#' + id).setAttribute('aria-busy', 'false'); if (!snapshot) $('#' + id).replaceChildren(el('p', '데이터를 불러오지 못했습니다. 새로고침으로 다시 시도해 주세요.', 'empty')); }
     if (!snapshot) for (const id of ['connectedCount', 'overviewConnections', 'lastCollected']) $('#' + id).textContent = '확인 불가';
@@ -238,7 +247,7 @@ $('#collectForm').addEventListener('submit', async event => {
   finally { busy = false; await refresh(); }
 });
 $('#platform').addEventListener('change', updateRoute); $('#route').addEventListener('change', updateRoute); $('#connectionStore').addEventListener('change', updateRoute);
-$('#refreshButton').addEventListener('click', async () => { message(''); await refresh(); });
+$('#refreshButton').addEventListener('click', async () => { message(''); if(activeView==='pl'&&snapshot)await plScreen.refresh();else await refresh(); });
 $('#collectStore').addEventListener('change', lockControls);
 $('#month').addEventListener('change', () => { writeUrl({ month: $('#month').value }); renderLatest(); });
 for (const id of ['historyStore', 'historyPlatform', 'historyMonth']) $('#' + id).addEventListener('change', () => { writeUrl({ [id]: $('#' + id).value }); renderReports(); });
@@ -262,12 +271,15 @@ async function consumeAccessLink() {
   const accessKey = new URLSearchParams(location.hash.slice(1)).get('access');
   if (!accessKey) return false;
   const version = ++accessLinkVersion;
+  accessPending=true;refreshVersion++;clearTimeout(refreshTimer);snapshot=null;csrf='';
+  plScreen.resetSession();
   history.replaceState(null, '', location.pathname + location.search);
   try {
     const session = await api('/api/session', { key: accessKey });
     if (version !== accessLinkVersion) return false;
     snapshot = null; csrf = ''; readOnly = session.role === 'viewer'; lockControls(); message(''); return true;
   } catch (error) { if (version === accessLinkVersion) message(error.message, true); return false; }
+  finally {if(version===accessLinkVersion)accessPending=false;}
 }
 window.addEventListener('hashchange', async () => { if (await consumeAccessLink()) await refresh(); });
 await consumeAccessLink();
