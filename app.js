@@ -1,8 +1,8 @@
-import { createScoreWorkspace } from './score-ui.js?v=9e9bcb948d44';
-import { apiRequest, isCloud } from './client.js?v=9e9bcb948d44';
-import { AUTOMATIONS } from './modules.js?v=9e9bcb948d44';
-import { initReporting, updateReporting, syncReporting, reportActions } from './reporting.js?v=9e9bcb948d44';
-import { createPLScreen } from './pl/pl-app.js?v=9e9bcb948d44';
+import { createScoreWorkspace } from './score-ui.js?v=71d8e82b0ece';
+import { apiRequest, isCloud } from './client.js?v=71d8e82b0ece';
+import { AUTOMATIONS } from './modules.js?v=71d8e82b0ece';
+import { initReporting, updateReporting, syncReporting, reportActions } from './reporting.js?v=71d8e82b0ece';
+import { createPLScreen } from './pl/pl-app.js?v=71d8e82b0ece';
 let csrf = '', busy = false, refreshTimer, activeView;
 let readOnly = false, accessPending = false;
 let stores = [], lastPlatform = 'instagram', snapshot = null, refreshVersion = 0;

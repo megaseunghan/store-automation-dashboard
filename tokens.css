@@ -1,25 +1,143 @@
+/* Source: mockups/home-v1/styles.css roots and mockups/shared/glass.css. */
+/* ── Tokens ─────────────────────────────────────────── */
 :root {
-  color-scheme: light;
-  --space-3xs: 2px; --space-2xs: 4px; --space-xs: 8px; --space-sm: 12px; --space-md: 16px; --space-lg: 24px; --space-xl: 40px; --space-2xl: 64px; --space-3xl: 96px; --space-4xl: 144px;
-  --text-xs: 0.75rem; --text-sm: 0.875rem; --text-md: 1rem; --text-lg: 1.2rem; --text-xl: 1.44rem; --text-2xl: 1.728rem; --text-3xl: 2.074rem;
-  --text-display-s: 1.44rem; --text-display: 1.728rem; --text-section: 1.2rem; --text-title: 1rem; --text-lead: 1rem;
-  --ease-out: cubic-bezier(0.16, 1, 0.3, 1); --ease-in: cubic-bezier(0.7, 0, 0.84, 0); --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
-  --dur-micro: 120ms; --dur-short: 220ms; --dur-long: 420ms;
-  --color-error: oklch(52% 0.19 27); --color-success: oklch(50% 0.12 150);
-  --container: 1440px; --gutter: 64px; --gap-columns: 32px; --section-gap-s: 120px; --section-gap: 144px; --section-gap-l: 176px;
-  --z-base: 1; --z-raised: 10; --z-dropdown: 100; --z-sticky: 200; --z-sticky-nav: 300; --z-modal: 400; --z-toast: 500; --z-tooltip: 600;
-  --color-paper: oklch(97.6% 0.011 88); --color-paper-2: oklch(96.5% 0.02 160); --color-paper-3: oklch(93% 0.036 160);
-  --color-ink: oklch(21% 0.025 170); --color-ink-2: oklch(31% 0.02 170); --color-muted: oklch(49% 0.024 165);
-  --color-rule: oklch(86.5% 0.022 140);
-  --color-accent: oklch(50% 0.13 160); --color-accent-deep: oklch(42% 0.11 162); --color-accent-soft: oklch(88% 0.08 160); --color-accent-ink: oklch(99% 0.006 160);
-  --color-focus: oklch(45% 0.14 160);
-  --p-mon: oklch(85% 0.052 22); --p-tue: oklch(87.5% 0.058 64); --p-wed: oklch(91.5% 0.064 98); --p-thu: oklch(86.5% 0.075 160);
-  --p-fri: oklch(87% 0.048 210); --p-sat: oklch(84% 0.045 270); --p-sun: oklch(84% 0.048 322);
-  --light: oklch(99.4% 0.016 84); --glint: oklch(100% 0 0);
-  --font-display: var(--font-body); --font-body: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", sans-serif;
-  --font-outlier: var(--font-body);
-  --radius-card: 14px; --radius-input: 10px; --radius-pill: 999px; --rule-hair: 1px;
-  --shadow-card: 0 1px 2px oklch(30% 0.03 165 / 0.08), 0 24px 48px -24px oklch(40% 0.08 165 / 0.35);
-  --shadow-lift: 0 1px 1px oklch(30% 0.03 165 / 0.10), 8px 18px 28px -14px oklch(36% 0.06 165 / 0.32), 18px 40px 60px -30px oklch(40% 0.08 165 / 0.30);
-  --tracking-display: -0.03em; --display-weight: 700;
+  --font: "Pretendard Variable", Pretendard, -apple-system, system-ui, sans-serif;
+
+  --canvas: #E7E9EE;
+  --bg: #F4F5F8;
+  --panel: #FFFFFF;
+  --panel-2: #F7F8FA;
+  --line: #E3E6EC;
+  --text: #111827;
+  --text-2: #4B5563;
+  --text-3: #8A93A3;
+
+  --accent: #2F6BFF;
+  --accent-soft: #E9EFFF;
+  --accent-ink: #FFFFFF;
+
+  --ok: #12965F;      --ok-soft: #E2F5EC;
+  --warn: #C27A00;    --warn-soft: #FFF3D9;
+  --risk: #D93A2F;    --risk-soft: #FDE8E6;
+  --pend: #6D4DF2;    --pend-soft: #EEEAFF;
+  --none: #8A93A3;    --none-soft: #EEF0F3;
+
+  --tag-pay: #6D4DF2;
+  --tag-buy: #0E9384;
+  --tag-eval: #2F6BFF;
+  --tag-issue: #E2711D;
+  --tag-pl: #475467;
+
+  --radius-lg: 16px;
+  --radius-md: 10px;
+  --radius-sm: 6px;
+  --shadow: 0 1px 2px rgb(16 24 40 / 0.05), 0 1px 3px rgb(16 24 40 / 0.04);
+
+  --dur-fast: 150ms;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+:root[data-theme="dark"] {
+  --canvas: #060A14;
+  --bg: #0B1220;
+  --panel: #121B2E;
+  --panel-2: #18233A;
+  --line: #233049;
+  --text: #E7EBF3;
+  --text-2: #A9B3C6;
+  --text-3: #6F7B93;
+
+  --accent: #5B8CFF;
+  --accent-soft: rgb(91 140 255 / 0.16);
+  --accent-ink: #FFFFFF;
+
+  --ok: #3CCB8B;      --ok-soft: rgb(60 203 139 / 0.14);
+  --warn: #F2B544;    --warn-soft: rgb(242 181 68 / 0.14);
+  --risk: #FF6B5E;    --risk-soft: rgb(255 107 94 / 0.14);
+  --pend: #A391FF;    --pend-soft: rgb(163 145 255 / 0.16);
+  --none: #6F7B93;    --none-soft: rgb(111 123 147 / 0.14);
+
+  --tag-pay: #A391FF;
+  --tag-buy: #3CC7B6;
+  --tag-eval: #5B8CFF;
+  --tag-issue: #FF9A4D;
+  --tag-pl: #A9B3C6;
+
+  --shadow: 0 0 0 1px rgb(255 255 255 / 0.02);
+}
+
+/* 글래스 표면 — html[data-surface="glass"]일 때만 적용. 기본 토큰(styles.css) 위에 덮어쓴다. */
+:root[data-surface="glass"] {
+  --glass-fill: rgb(255 255 255 / 0.5);
+  --glass-fill-2: rgb(255 255 255 / 0.38);
+  --glass-edge: rgb(255 255 255 / 0.75);
+  --glass-blur: blur(22px) saturate(170%);
+  --glass-shadow: 0 1px 0 rgb(255 255 255 / 0.7) inset, 0 10px 30px -12px rgb(30 41 80 / 0.22);
+
+  --panel: var(--glass-fill);
+  --panel-2: var(--glass-fill-2);
+  --line: rgb(17 24 39 / 0.08);
+  --text-3: #687186;
+  --accent-soft: rgb(47 107 255 / 0.13);
+
+  /* 한국 색: 백(한지) · 적(#CD2E3A) · 청(#0047A0) · 흑(먹) */
+  --backdrop:
+    radial-gradient(44% 36% at 88% 10%, rgb(205 46 58 / 0.62) 0%, rgb(205 46 58 / 0) 100%),
+    radial-gradient(48% 40% at 12% 90%, rgb(0 71 160 / 0.6) 0%, rgb(0 71 160 / 0) 100%),
+    radial-gradient(30% 26% at 50% 50%, rgb(205 46 58 / 0.18) 0%, rgb(205 46 58 / 0) 100%),
+    radial-gradient(26% 22% at 6% 12%, rgb(17 17 17 / 0.22) 0%, rgb(17 17 17 / 0) 100%),
+    radial-gradient(26% 22% at 94% 88%, rgb(17 17 17 / 0.2) 0%, rgb(17 17 17 / 0) 100%),
+    #F7F6F2;
+}
+
+:root[data-surface="glass"][data-theme="dark"] {
+  --glass-fill: rgb(16 24 42 / 0.5);
+  --glass-fill-2: rgb(255 255 255 / 0.05);
+  --glass-edge: rgb(255 255 255 / 0.12);
+  --glass-shadow: 0 1px 0 rgb(255 255 255 / 0.06) inset, 0 14px 34px -14px rgb(0 0 0 / 0.6);
+
+  --line: rgb(255 255 255 / 0.08);
+  --text-3: #8591A8;
+  --accent-soft: rgb(91 140 255 / 0.2);
+
+  --backdrop:
+    radial-gradient(44% 36% at 88% 10%, rgb(205 46 58 / 0.55) 0%, rgb(205 46 58 / 0) 100%),
+    radial-gradient(48% 40% at 12% 90%, rgb(0 71 160 / 0.75) 0%, rgb(0 71 160 / 0) 100%),
+    radial-gradient(30% 26% at 50% 50%, rgb(205 46 58 / 0.14) 0%, rgb(205 46 58 / 0) 100%),
+    radial-gradient(26% 22% at 6% 12%, rgb(255 255 255 / 0.1) 0%, rgb(255 255 255 / 0) 100%),
+    radial-gradient(26% 22% at 94% 88%, rgb(255 255 255 / 0.08) 0%, rgb(255 255 255 / 0) 100%),
+    #0A0A0C;
+}
+
+
+/* Existing operating-screen names map to the approved source palette. */
+:root {
+  --space-3xs:2px; --space-2xs:4px; --space-xs:8px; --space-sm:12px; --space-md:16px; --space-lg:24px; --space-xl:40px; --space-2xl:64px; --space-3xl:96px; --space-4xl:144px;
+  --text-xs:.75rem; --text-sm:.875rem; --text-md:1rem; --text-lg:1.2rem; --text-xl:1.44rem; --text-2xl:1.728rem; --text-3xl:2.074rem;
+  --text-display-s:1.44rem; --text-display:27px; --text-section:20px; --text-title:17px; --text-lead:1rem;
+  --dur-micro:120ms; --dur-short:220ms; --dur-long:420ms;
+  --container:1328px; --gutter:48px; --gap-columns:32px; --section-gap-s:120px; --section-gap:144px; --section-gap-l:176px;
+  --z-base:1; --z-raised:10; --z-dropdown:100; --z-sticky:200; --z-sticky-nav:300; --z-modal:400; --z-toast:500; --z-tooltip:600;
+  --font-body:var(--font); --font-display:var(--font); --font-outlier:var(--font);
+  --tracking-display:-.025em; --display-weight:700;
+  --radius-card:var(--radius-lg); --radius-input:var(--radius-md); --radius-pill:999px; --radius-circle:50%; --rule-hair:1px;
+  --shadow-card:var(--glass-shadow); --shadow-lift:var(--glass-shadow);
+  --color-paper:var(--bg); --color-paper-2:var(--panel-2); --color-paper-3:var(--panel-2);
+  --color-surface:var(--panel); --color-clear:transparent;
+  --color-ink:var(--text); --color-ink-2:var(--text-2); --color-muted:var(--text-2);
+  --color-rule:var(--line); --color-input-border:var(--glass-edge);
+  --color-accent:var(--accent); --color-accent-deep:var(--text); --color-accent-soft:var(--accent-soft); --color-accent-ink:var(--accent-ink); --color-focus:var(--accent);
+  --color-error:var(--risk); --color-error-soft:var(--risk-soft); --color-success:var(--ok);
+  --light:var(--panel); --glint:var(--glass-edge);
+  --chart-line:var(--accent); --chart-point:var(--accent); --chart-bars:var(--tag-pl); --chart-zero:var(--text-2);
+  --surface-opaque:#FFFFFF; --overlay-backdrop:rgb(0 0 0 / .3);
+  color-scheme:light;
+}
+:root[data-theme="dark"] { --surface-opaque:#121B2E; color-scheme:dark; }
+/* Source palette stays unchanged; fallback surfaces are fully opaque. */
+@media (prefers-reduced-transparency:reduce) {
+ :root[data-surface="glass"],:root[data-surface="glass"][data-theme="dark"] { --glass-fill:var(--surface-opaque); --glass-fill-2:var(--surface-opaque); --glass-blur:none; }
+}
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))) {
+ :root[data-surface="glass"],:root[data-surface="glass"][data-theme="dark"] { --glass-fill:var(--surface-opaque); --glass-fill-2:var(--surface-opaque); --glass-blur:none; }
 }

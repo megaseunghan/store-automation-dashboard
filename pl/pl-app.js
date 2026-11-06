@@ -1,19 +1,20 @@
-import {adaptPLResponse} from './pl-adapter.js?v=9e9bcb948d44';
-import {createPLCalculations} from './pl-calc.js?v=9e9bcb948d44';
-import {createPLRenderer} from './pl-render.js?v=9e9bcb948d44';
+import {adaptPLResponse} from './pl-adapter.js?v=71d8e82b0ece';
+import {createPLCalculations} from './pl-calc.js?v=71d8e82b0ece';
+import {createPLRenderer} from './pl-render.js?v=71d8e82b0ece';
 
 // One read per session/entry; retries are explicit. No Notion calls originate here.
 export function createPLScreen({root,request,now=()=>new Date()}) {
   let role=null, model=null, calc=null, renderer=null, state=null, pending=null;
-  const colorPreference=globalThis.matchMedia?.('(prefers-color-scheme: dark)');
-  let generation=0, destroyed=false, active=false, attempted=false, theme=colorPreference?.matches?'dark':'light', phase='idle';
-  function syncSystemTheme(){
-    theme=colorPreference?.matches?'dark':'light';root.dataset.theme=theme;
+  const themeDocument=globalThis.document;
+  const applicationTheme=()=>themeDocument?.documentElement?.dataset.theme==='dark'?'dark':'light';
+  let generation=0, destroyed=false, active=false, attempted=false, theme=applicationTheme(), phase='idle';
+  function syncApplicationTheme(){
+    theme=applicationTheme();root.dataset.theme=theme;
     if(state)state={...state,theme};
     if(dialog)root.querySelectorAll('[data-pl-theme]').forEach(element=>{element.dataset.plTheme=theme;});
     else paint();
   }
-  colorPreference?.addEventListener('change',syncSystemTheme);
+  themeDocument?.addEventListener?.('app-theme-change',syncApplicationTheme);
   const clock=()=>typeof now==='function'?now():now;
   const currentMonth=()=>new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit'}).format(clock()).replace('/','-');
   const shift=(month,n)=>{const [y,m]=month.split('-').map(Number),d=new Date(Date.UTC(y,m-1+n,1));return `${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,'0')}`;};
@@ -147,6 +148,6 @@ export function createPLScreen({root,request,now=()=>new Date()}) {
     syncURL(){if(phase==='ready'&&model)setState(fromURL(),{url:false});},
     refresh(){return load();},
     resetSession,
-    destroy(){resetSession();destroyed=true;colorPreference?.removeEventListener('change',syncSystemTheme);observer?.disconnect();root.removeEventListener('click',click);root.removeEventListener('change',change);root.removeEventListener('keydown',keydown);}
+    destroy(){resetSession();destroyed=true;themeDocument?.removeEventListener?.('app-theme-change',syncApplicationTheme);observer?.disconnect();root.removeEventListener('click',click);root.removeEventListener('change',change);root.removeEventListener('keydown',keydown);}
   };
 }
