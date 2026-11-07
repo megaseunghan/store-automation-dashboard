@@ -1,4 +1,4 @@
-import {marketingScore,SCORE_BANDS,bonusReason} from './scoring.js?v=71d8e82b0ece';
+import {marketingScore,SCORE_BANDS,bonusReason} from './scoring.js?v=ac48dfda448d';
 const node=(tag,text,cls)=>{const n=document.createElement(tag);if(text!==undefined)n.textContent=text;if(cls)n.className=cls;return n;};
 const num=n=>Number.isFinite(n)?n.toLocaleString('ko-KR',{maximumFractionDigits:2}):'미확인';
 const signed=n=>n>0?'+'+n:String(n);
@@ -53,8 +53,8 @@ export function createScoreWorkspace({api,stores}){
    const details=node('details',undefined,'score-detail');details.open=opened.has(store.id);details.addEventListener('toggle',()=>{if(details.isConnected){if(details.open)opened.add(store.id);else opened.delete(store.id);}});const summary=node('summary');summary.setAttribute('aria-label',store.name+' 점수 근거와 게시물');summary.append(node('span','점수 근거와 게시물'),node('span',s.count===null?'확인 중':s.count+'건','score-count'));details.append(summary);
    const why=node('div',undefined,'score-reasons');why.append(node('h4','30+α 구성 근거','score-detail-heading'));
    why.append(node('p',s.reviewPoints===null?'네이버 리뷰: 해당 월 자료 확인 필요':`네이버 리뷰 ${s.reviewCount}건 → ${s.reviewCount>=100?'100건 이상':s.reviewCount>=80?'80~99건':s.reviewCount>=60?'60~79건':s.reviewCount>=40?'40~59건':s.reviewCount>=20?'20~39건':s.reviewCount>=10?'10~19건':'0~9건'} 구간 ${s.reviewPoints}점`));why.append(node('p',s.reason));
-   const band=SCORE_BANDS.find(b=>b.grade===s.performanceGrade);if(band)why.append(node('p',`성과 ${band.grade} 기준: 평균 조회 ${num(band.views)}회 이상 / 저장+공유 ${num(band.actions)}회 이상`,'score-note'));
-   if(s.count>0){why.append(node('p',`조회 평균 ${num(s.viewAverage)}회`));why.append(node('p',`저장+공유 평균 ${num(s.actionAverage)}회${s.actionMissing?' 이상 (확인된 수치 기준)':''}`));}
+   const band=SCORE_BANDS.find(b=>b.grade===s.performanceGrade);if(band)why.append(node('p',`성과 ${band.grade} 기준: 평균 조회 ${num(band.views)}회 이상${s.policy==='views-only'?'':` / 저장+공유 ${num(band.actions)}회 이상`}`,'score-note'));
+   if(s.count>0){why.append(node('p',`조회 평균 ${num(s.viewAverage)}회`));if(s.policy!=='views-only')why.append(node('p',`저장+공유 평균 ${num(s.actionAverage)}회${s.actionMissing?' 이상 (확인된 수치 기준)':''}`));}
    why.append(node('p',s.complete?`콘텐츠별 가산점 합계 ${signed(s.bonus)}점${!s.bonusComplete?' / 미확인 항목 있음':''}`:'콘텐츠 목록 확인 후 가산점 계산'));
    for(const note of s.notes)why.append(node('p',note,'score-note'));if(facts.status==='rejected')why.append(node('p','리뷰 점수 근거를 불러오지 못했습니다. 새로고침해 주세요.','score-note'));
    const contributions=s.posts.filter(p=>p.bonus.points>0).sort((a,b)=>b.bonus.points-a.bonus.points).slice(0,3);
@@ -65,7 +65,7 @@ export function createScoreWorkspace({api,stores}){
    details.append(why);
    const posts=node('div',undefined,'score-posts');posts.append(node('h4','점수에 포함한 게시물'));
    if(!s.posts.length)posts.append(node('p',s.count===0?'인정된 게시물이 없습니다.':'목록을 확인하지 못했습니다.','score-note'));
-   for(const p of s.posts){const entry=node('article',undefined,'score-post');const meta=node('div',undefined,'score-post-meta');meta.append(node('span',day(p.timestamp)),node('span',postType(p)));if(p.bonus.points)meta.append(node('strong','+'+p.bonus.points+'점'));entry.append(meta,node('p',(p.caption||'본문 없음').split('\n')[0],'score-post-title'));const metrics=node('p',`조회 ${num(p.metrics?.views)} / 저장 ${num(p.metrics?.saved)} / 공유 ${num(p.metrics?.shares)}`,'score-note');entry.append(metrics);if(p.bonus.points)entry.append(node('p',bonusReason(p.bonus),'score-note'));posts.append(entry);}
+   for(const p of s.posts){const entry=node('article',undefined,'score-post');const meta=node('div',undefined,'score-post-meta');meta.append(node('span',day(p.timestamp)),node('span',postType(p)));if(p.bonus.points)meta.append(node('strong','+'+p.bonus.points+'점'));entry.append(meta,node('p',(p.caption||'본문 없음').split('\n')[0],'score-post-title'));const actions=p.bonus.actionsEligible===false?'저장+공유 가산 비대상 (릴스만)':`저장 ${num(p.metrics?.saved)} / 공유 ${num(p.metrics?.shares)}`;const metrics=node('p',`조회 ${num(p.metrics?.views)} / ${actions}`,'score-note');entry.append(metrics);if(p.bonus.points)entry.append(node('p',bonusReason(p.bonus),'score-note'));posts.append(entry);}
    details.append(posts);card.append(details);grid.append(card);
   }
   target.replaceChildren(grid,node('p','조회 시점의 누적 실적입니다. 최종 확정·노션 반영 전 확인 점수예요. 순위는 구성 항목이 모두 확인된 매장끼리 비교합니다.','score-footnote'));target.setAttribute('aria-busy','false');

@@ -3,21 +3,22 @@
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow"><meta name="description" content="매장별 자동화 업무와 마케팅 수집 결과, 연결된 계정과 원자료를 한곳에서 확인합니다.">
-<title>매장 업무 대시보드</title><script src="./theme.js?v=71d8e82b0ece"></script><link rel="stylesheet" href="./style.css?v=71d8e82b0ece">
+<title>매장 업무 대시보드</title><script src="./theme.js?v=ac48dfda448d"></script><link rel="stylesheet" href="./style.css?v=ac48dfda448d">
 </head>
 <body>
 <a class="skip" href="#main">본문으로 이동</a>
 <div class="app-shell">
-<header class="app-header"><a class="brand" href="?view=dashboard" aria-label="매장 실적 홈"><span class="brand-mark" aria-hidden="true">↳</span>매장 실적</a><div class="header-actions"><span id="serverEnvironment" class="environment">공유 대시보드</span><button id="appThemeToggle" class="theme-toggle" type="button" aria-pressed="false">다크 모드</button></div></header>
+<header class="app-header"><a class="brand" href="?view=eval" aria-label="매장 실적 홈"><span class="brand-mark" aria-hidden="true">↳</span>매장 실적</a><div class="header-actions"><span id="serverEnvironment" class="environment">공유 대시보드</span><button id="appThemeToggle" class="theme-toggle" type="button" aria-pressed="false">다크 모드</button></div></header>
 <main id="main">
-<div class="page-heading"><div><h1>매장 마케팅 점수</h1></div><button id="refreshButton" type="button" class="button-quiet">새로고침</button></div>
-<nav class="view-nav" aria-label="주요 화면"><a href="?view=dashboard" data-view-link="dashboard" aria-current="page">월별 점수</a><a href="?view=pl" data-view-link="pl">손익</a><a href="?view=history" data-view-link="history">지난 보고서</a><a href="?view=trends" data-view-link="trends">연간 추이</a><a href="?view=accounts" data-view-link="accounts" hidden>계정</a></nav>
+<div class="page-heading"><div><h1>종합평가</h1></div><button id="refreshButton" type="button" class="button-quiet">새로고침</button></div>
+<nav class="view-nav" aria-label="주요 화면"><a href="?view=eval" data-view-link="eval" aria-current="page">종합평가</a><a href="?view=pl" data-view-link="pl">손익</a><a href="?view=dashboard" data-view-link="dashboard">마케팅</a><a href="?view=history" data-view-link="history">지난 보고서</a><a href="?view=trends" data-view-link="trends">연간 추이</a><a href="?view=accounts" data-view-link="accounts" hidden>계정</a></nav>
 <div id="notice" role="status" aria-live="polite"></div>
 <noscript><p class="empty">데이터 조회와 작업 실행에는 JavaScript가 필요합니다. 브라우저에서 JavaScript를 켠 뒤 새로고침해 주세요.</p></noscript>
+<section data-view="eval" aria-label="종합평가"><div id="evalContent" class="eval-screen" aria-live="polite"><p class="loading-text">노션에서 종합평가를 불러오고 있습니다</p></div></section>
 <section data-view="pl" aria-label="손익" hidden><div id="plContent" class="pl-screen" aria-live="polite"><p class="loading-text">노션에서 손익을 불러오고 있습니다</p></div></section>
-<section data-view="dashboard" aria-label="자동화 대시보드">
+<section data-view="dashboard" aria-label="마케팅" hidden>
 <div class="owner-period"><label for="month">보고 싶은 월<input name="month" id="month" type="month" required form="collectForm"></label><span id="ownerUpdated" class="small"></span></div>
-<section class="results-section" aria-labelledby="latest-title"><div class="section-title"><div><h2 id="latest-title">매장별 점수</h2><p id="latestPeriod" class="small">기본 30점 + 콘텐츠 가산점</p></div><a href="?view=history" data-view-link="history" class="text-link">지난 보고서</a></div><div id="latestResults" aria-busy="true"><p class="loading-text">최근 결과를 불러오고 있습니다.</p></div><a class="period-link" href="?view=trends" data-view-link="trends">연간 추이 보기</a></section>
+<section class="results-section" aria-labelledby="latest-title"><div class="section-title"><div><h2 id="latest-title">매장별 점수</h2><p id="latestPeriod" class="small">기본 30점 + 콘텐츠 가산점</p></div><a href="?view=history" data-view-link="history" class="text-link">지난 보고서</a></div><p id="marketingSelectionNote" class="small" role="status" hidden></p><div id="latestResults" aria-busy="true"><p class="loading-text">최근 결과를 불러오고 있습니다.</p></div><a class="period-link" href="?view=trends" data-view-link="trends">연간 추이 보기</a></section>
 <details id="managementTools" class="compact-details management-tools"><summary>수집 관리</summary><dl class="overview-strip"><div><dt>연결 계정</dt><dd id="overviewConnections">확인 중</dd></div><div><dt>등록된 자동화</dt><dd id="automationCount">확인 중</dd></div><div><dt>최근 수집</dt><dd id="lastCollected">확인 중</dd></div></dl>
 <section class="automation-section" aria-labelledby="automations-title"><div class="section-title"><h2 id="automations-title">자동화 작업</h2></div><div id="automations" class="automation-list"><p class="loading-text">자동화 목록을 불러오고 있습니다.</p></div></section>
 <section id="marketing-workspace" class="workspace" aria-labelledby="collect-title"><div class="section-title"><div><h2 id="collect-title">매장 마케팅 수집</h2></div><span class="tag">수동 실행</span></div>
@@ -39,5 +40,5 @@
 <label>접근 토큰<input name="token" type="password" required autocomplete="off" spellcheck="false" placeholder="Meta에서 발급한 토큰 붙여넣기"></label><label class="check"><input type="checkbox" required> 토큰을 이 컴퓨터에 저장하고, 선택한 매장의 공식 Meta 통계를 조회하는 데 사용합니다.</label><button type="submit">계정 확인 후 연결</button></form>
 <p class="small">연결 확인은 계정의 일치 여부를 확인합니다. 인사이트 권한과 지표 지원 여부는 실제 수집 결과에 표시됩니다. 토큰 만료 시 다시 연결해야 합니다.</p></div></details></section>
 <footer>확인된 실적만 표시합니다.</footer>
-</main></div><script type="module" src="./app.js?v=71d8e82b0ece"></script>
+</main></div><script type="module" src="./app.js?v=ac48dfda448d"></script>
 </body></html>

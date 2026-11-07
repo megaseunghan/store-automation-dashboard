@@ -1,11 +1,15 @@
-import { createScoreWorkspace } from './score-ui.js?v=71d8e82b0ece';
-import { apiRequest, isCloud } from './client.js?v=71d8e82b0ece';
-import { AUTOMATIONS } from './modules.js?v=71d8e82b0ece';
-import { initReporting, updateReporting, syncReporting, reportActions } from './reporting.js?v=71d8e82b0ece';
-import { createPLScreen } from './pl/pl-app.js?v=71d8e82b0ece';
+import { createScoreWorkspace } from './score-ui.js?v=ac48dfda448d';
+import { apiRequest, isCloud } from './client.js?v=ac48dfda448d';
+import { AUTOMATIONS } from './modules.js?v=ac48dfda448d';
+import { initReporting, updateReporting, syncReporting, reportActions } from './reporting.js?v=ac48dfda448d';
+import { createPLScreen } from './pl/pl-app.js?v=ac48dfda448d';
+import { createEvalScreen } from './eval/eval-app.js?v=ac48dfda448d';
 let csrf = '', busy = false, refreshTimer, activeView;
 let readOnly = false, accessPending = false;
 let stores = [], lastPlatform = 'instagram', snapshot = null, refreshVersion = 0;
+let scoreSelectionVersion=0;
+const marketingStoreAliases={haenggung:'tenacebar',sindong:'forest',paldal:'paldalbbq',simgeum:'simgeum',yamiok:'yummy',sasek:'sasek'};
+const evaluationStoreNames={haenggung:'테네스 행궁',sindong:'테네스 신동',paldal:'팔달통닭바베큐',simgeum:'심금',sasek:'사색',yamiok:'야미옥'};
 const validMonth = value => /^(?!0000)[0-9]{4}-(0[1-9]|1[0-2])$/.test(value || '');
 const $ = selector => document.querySelector(selector);
 const el = (tag, text, className) => { const node = document.createElement(tag); if (text !== undefined) node.textContent = text; if (className) node.className = className; return node; };
@@ -14,6 +18,7 @@ const dateLabel = date => new Intl.DateTimeFormat('ko-KR', { timeZone: 'Asia/Seo
 function message(text, error = false) { const box = $('#notice'); box.textContent = text; box.className = error ? 'notice error' : 'notice'; }
 const api = (path, data) => apiRequest(path, data, csrf);
 const plScreen=createPLScreen({root:$('#plContent'),request:(path,options)=>apiRequest(path,undefined,csrf,options)});
+const evalScreen=createEvalScreen({root:$('#evalContent'),request:(path,options)=>apiRequest(path,undefined,csrf,options)});
 const scoreWorkspace=createScoreWorkspace({api,stores:()=>stores});
 const hasActiveJob = () => ['queued', 'running'].includes(snapshot?.job?.status);
 
@@ -39,16 +44,28 @@ function writeUrl(values, replace = false) {
 }
 function syncView() {
   const requested = new URL(location.href).searchParams.get('view');
-  const view = ['dashboard', 'pl', 'history', 'accounts', 'trends', 'report'].includes(requested) && !(readOnly && requested === 'accounts') ? requested : 'dashboard';
+  const view = readOnly&&requested==='accounts'?'dashboard':['eval','dashboard', 'pl', 'history', 'accounts', 'trends', 'report'].includes(requested)?requested:'eval';
   for (const panel of document.querySelectorAll('[data-view]')) panel.hidden = panel.dataset.view !== view;
   for (const link of document.querySelectorAll('[data-view-link]')) {
     if (link.dataset.viewLink === (view === 'report' ? 'history' : view)) link.setAttribute('aria-current', 'page'); else link.removeAttribute('aria-current');
   }
   if (activeView !== view) { activeView = view; window.scrollTo({ top: 0, behavior: 'instant' }); }
-  document.title = `${({ dashboard: '월별 실적', pl:'손익', history: '지난 보고서', accounts: '계정 설정', trends: '연간 추이', report: '상세 보고서' })[view]} | 매장 업무`;
+  const title=({eval:'종합평가',dashboard:'마케팅',pl:'손익',history:'지난 보고서',accounts:'계정 설정',trends:'연간 추이',report:'상세 보고서'})[view];
+  document.title = `${title} | 매장 업무`;
   document.body.classList.toggle('pl-view-active',view==='pl');
-  document.querySelector('.page-heading h1').textContent=view==='pl'?'손익':'매장 마케팅 점수';
+  document.querySelector('.page-heading h1').textContent=title;
   if(view==='pl'&&snapshot&&!accessPending){void plScreen.activate({role:readOnly?'viewer':'admin'});plScreen.syncURL();}
+  if(view==='eval'&&snapshot&&!accessPending){void evalScreen.activate({role:readOnly?'viewer':'admin'});evalScreen.syncURL();}
+  if(view==='dashboard')syncMarketingSelection();
+}
+function syncMarketingSelection(){
+  if(activeView!=='dashboard')return;
+  const id=new URL(location.href).searchParams.get('marketingStore'),note=$('#marketingSelectionNote');note.hidden=true;note.textContent='';if(!id)return;
+  if($('#latestResults').dataset.scoreMonth!==$('#month').value)return;
+  const cards=[...document.querySelectorAll('#latestResults .score-card')];
+  const card=cards.find(card=>card.dataset.scoreStore===id)||cards.find(card=>card.dataset.scoreStore===marketingStoreAliases[id]);
+  if(!card){note.textContent=`${evaluationStoreNames[id]||'선택한 매장'}의 이 달 마케팅 수집 자료가 없습니다. 종합평가의 마케팅 점수는 노션 입력값입니다.`;note.hidden=false;return;}
+  const detail=card.querySelector('.score-detail');if(detail)detail.open=true;card.scrollIntoView({block:'start',behavior:'instant'});
 }
 function syncFilters() {
   const params = new URL(location.href).searchParams;
@@ -107,12 +124,13 @@ function resultRow(result, showStore = true) {
 const resultHeaders = [['매장 / 플랫폼'], ['인정', true], ['조회', true], ['저장', true], ['공유', true], ['상태']];
 function renderLatest() {
   if (!snapshot) return;
+  const selectionVersion=++scoreSelectionVersion;
   const period = $('#month').value; $('#latestPeriod').textContent = `${period.split('-')[0]}년 ${Number(period.split('-')[1])}월 게시물 기준`;
   const target=$('#latestResults');
   if(!validMonth(period)){scoreWorkspace.cancel();target.replaceChildren(el('p','보고 싶은 월을 선택해 주세요.','empty'));return;}
   const last=[...snapshot.reports].filter(r=>r.month===period).sort((a,b)=>b.createdAt.localeCompare(a.createdAt))[0];
   $('#ownerUpdated').textContent=last?`${dateLabel(last.createdAt)} 업데이트`:'';
-  void scoreWorkspace.render(snapshot,period,target).catch(()=>{target.replaceChildren(el('p','점수를 불러오지 못했습니다. 새로고침해 주세요.','empty'));});
+  void scoreWorkspace.render(snapshot,period,target).then(()=>{if(selectionVersion!==scoreSelectionVersion)return;target.dataset.scoreMonth=period;syncMarketingSelection();}).catch(()=>{if(selectionVersion===scoreSelectionVersion)target.replaceChildren(el('p','점수를 불러오지 못했습니다. 새로고침해 주세요.','empty'));});
 }
 function renderReports() {
   if (!snapshot) return;
@@ -174,7 +192,7 @@ async function refresh() {
   clearTimeout(refreshTimer); $('#refreshButton').disabled = true; $('#refreshButton').setAttribute('aria-busy', 'true');
   try {
     const status = await api('/api/status'); if (requestVersion !== refreshVersion) return;
-    if(snapshot&&snapshot.role!==status.role)plScreen.resetSession();
+    if(snapshot&&snapshot.role!==status.role){plScreen.resetSession();evalScreen.resetSession();}
     csrf = status.csrf; stores = status.stores; snapshot = status; readOnly = status.role === 'viewer';
     $('#serverEnvironment').textContent = `${status.serverLabel || '이 컴퓨터에서 실행 중'}${readOnly ? ' · 조회 전용' : ''}`;
     document.querySelector('.view-nav [data-view-link="accounts"]').hidden = true;
@@ -190,7 +208,7 @@ async function refresh() {
     syncView();
     if (!$('#connectionStore').options.length) {
       for (const selector of ['#connectionStore', '#collectStore', '#historyStore']) for (const store of status.stores) { const option = el('option', store.name); option.value = store.id; $(selector).append(option); }
-      const month = new URL(location.href).searchParams.get('month'); $('#month').value = validMonth(month) && month <= status.previousMonth ? month : status.previousMonth; $('#month').max = status.previousMonth;
+      const params=new URL(location.href).searchParams,month=params.get('month'); $('#month').value = validMonth(month) && (month <= status.previousMonth||params.has('marketingStore')) ? month : status.previousMonth; $('#month').max = status.previousMonth;
       syncFilters(); updateRoute();
     }
     const expected = stores.reduce((sum, store) => sum + (store.threads ? 2 : 1), 0);
@@ -225,7 +243,7 @@ async function refresh() {
     lockControls(); if (['queued', 'running'].includes(status.job?.status)) refreshTimer = setTimeout(refresh, 3000);
   } catch (error) {
     if (requestVersion !== refreshVersion) return;
-    if(error.status===401)plScreen.resetSession();
+    if(error.status===401){plScreen.resetSession();evalScreen.resetSession();}
     message(`${error.message} 화면 상단의 새로고침으로 다시 시도해 주세요.`, true);
     for (const id of ['accounts', 'latestResults', 'reports', 'trendContent', 'reportDetail']) { $('#' + id).setAttribute('aria-busy', 'false'); if (!snapshot) $('#' + id).replaceChildren(el('p', '데이터를 불러오지 못했습니다. 새로고침으로 다시 시도해 주세요.', 'empty')); }
     if (!snapshot) for (const id of ['connectedCount', 'overviewConnections', 'lastCollected']) $('#' + id).textContent = '확인 불가';
@@ -247,7 +265,7 @@ $('#collectForm').addEventListener('submit', async event => {
   finally { busy = false; await refresh(); }
 });
 $('#platform').addEventListener('change', updateRoute); $('#route').addEventListener('change', updateRoute); $('#connectionStore').addEventListener('change', updateRoute);
-$('#refreshButton').addEventListener('click', async () => { message(''); if(activeView==='pl'&&snapshot)await plScreen.refresh();else await refresh(); });
+$('#refreshButton').addEventListener('click', async () => { message(''); if(activeView==='pl'&&snapshot)await plScreen.refresh();else if(activeView==='eval'&&snapshot)await evalScreen.refresh();else await refresh(); });
 $('#collectStore').addEventListener('change', lockControls);
 $('#month').addEventListener('change', () => { writeUrl({ month: $('#month').value }); renderLatest(); });
 for (const id of ['historyStore', 'historyPlatform', 'historyMonth']) $('#' + id).addEventListener('change', () => { writeUrl({ [id]: $('#' + id).value }); renderReports(); });
@@ -255,8 +273,18 @@ $('#historyFilters').addEventListener('submit', event => event.preventDefault())
 $('#clearFilters').addEventListener('click', () => { $('#recordSearch').value = ''; writeUrl({ historyStore: '', historyPlatform: '', historyMonth: '' }); syncFilters(); renderReports(); });
 $('#recordSearch').addEventListener('input', renderReports);
 $('#recordState').addEventListener('change', () => { writeUrl({ recordState: $('#recordState').value }); renderReports(); });
-document.addEventListener('click', event => { const link = event.target.closest('[data-view-link]'); if (!link || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) return; event.preventDefault(); writeUrl({ view: link.dataset.viewLink }); syncView(); syncReporting(); });
-window.addEventListener('popstate', () => { syncView(); syncFilters(); const month = new URL(location.href).searchParams.get('month'); if (snapshot) $('#month').value = validMonth(month) && month <= snapshot.previousMonth ? month : snapshot.previousMonth; renderLatest(); renderReports(); syncReporting(); });
+document.addEventListener('click', event => {
+  const link=event.target.closest('[data-view-link]');if(!link||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey||event.button!==0)return;
+  event.preventDefault();const destination=new URL(link.href,location.href),values={view:link.dataset.viewLink};
+  if(values.view==='dashboard'){
+    const selected=destination.searchParams.get('marketingStore');if(selected&&Object.hasOwn(marketingStoreAliases,selected))values.marketingStore=selected;
+    const month=destination.searchParams.get('month');if(validMonth(month))values.month=month;
+  }
+  writeUrl(values);
+  if(values.view==='dashboard'&&snapshot){const month=new URL(location.href).searchParams.get('month');if(validMonth(month))$('#month').value=month;renderLatest();}
+  syncView();syncReporting();
+});
+window.addEventListener('popstate', () => { syncView(); syncFilters(); const month = new URL(location.href).searchParams.get('month'); if (snapshot) $('#month').value = validMonth(month) && (month <= snapshot.previousMonth || new URL(location.href).searchParams.has('marketingStore')) ? month : snapshot.previousMonth; renderLatest(); renderReports(); syncReporting(); });
 initReporting({ api, writeUrl, syncView, message, refresh, isReadOnly: () => readOnly, isBusy: () => readOnly || busy || hasActiveJob(), setBusy: value => { busy = value; lockControls(); } });
 for (const id of ['showShare', 'rotateShare']) $('#' + id).addEventListener('click', async () => {
   if (readOnly || busy || hasActiveJob()) return;
@@ -273,6 +301,7 @@ async function consumeAccessLink() {
   const version = ++accessLinkVersion;
   accessPending=true;refreshVersion++;clearTimeout(refreshTimer);snapshot=null;csrf='';
   plScreen.resetSession();
+  evalScreen.resetSession();
   history.replaceState(null, '', location.pathname + location.search);
   try {
     const session = await api('/api/session', { key: accessKey });

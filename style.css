@@ -1,6 +1,7 @@
-@import url('./tokens.css?v=71d8e82b0ece');
-@import url('./base.css?v=71d8e82b0ece');
-@import url('./pl/pl.css?v=71d8e82b0ece');
+@import url('./tokens.css?v=ac48dfda448d');
+@import url('./base.css?v=ac48dfda448d');
+@import url('./pl/pl.css?v=ac48dfda448d');
+@import url('./eval/eval.css?v=ac48dfda448d');
 :root {
  --spacing-2: 2px;
  --spacing-3: 3px;
@@ -425,3 +426,5 @@ label,summary,.score-footnote,.results-section>.section-title .small { color:var
 .view-nav a { color:var(--text); }
 .automation-row p,.notes-body li,.score-number>span { color:var(--text); }
 .data-table th,.reading-table th,.score-bonus-contributions li>span { color:var(--text); }
+@media(max-width:640px) { .view-nav { grid-template-columns:repeat(5,minmax(0,1fr)); } }
+@media(max-width:360px) { .view-nav a { font-size:12px; } }
