@@ -87,3 +87,15 @@
 }
 @media(prefers-reduced-transparency:reduce) { .eval-panel,.eval-detail-sheet { -webkit-backdrop-filter:none; backdrop-filter:none; } }
 @media(prefers-reduced-motion:reduce) { .eval-score-table tr { transition:none; } }
+
+.eval-loading-progress { margin-bottom:16px; }
+.eval-progress-status { margin:0 0 9px; color:var(--text); font-size:14px; }
+.eval-progress-track { overflow:hidden; height:8px; border-radius:var(--radius-pill); background:var(--line); }
+.eval-progress-fill { display:block; height:100%; width:100%; background:var(--accent); transform-origin:left center; transition:transform 160ms ease-out; }
+.eval-score-table .eval-loading-cell { text-align:left; color:var(--text-2); line-height:1.6; }
+.eval-loading-cell p,.eval-failure-note { margin:0 0 8px; font-size:12px; font-weight:400; color:var(--text); overflow-wrap:anywhere; }
+.eval-store-loading { cursor:default; }
+.eval-store-loading button,.eval-score-table [data-eval-action="retry-store"],.eval-global-error button { min-height:44px; font-size:14px; margin-top:8px; }
+@media(max-width:767px) { .eval-score-table .eval-loading-cell { grid-column:1/-1; align-items:flex-start; padding:6px 0; } .eval-score-table .eval-store-loading th { grid-column:1/-1; } }
+/* Override the shared reduced-motion rule's important minimum duration. */
+@media(prefers-reduced-motion:reduce) { .eval-progress-track .eval-progress-fill { transition:none !important; } }

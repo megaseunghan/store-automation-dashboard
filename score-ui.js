@@ -1,4 +1,4 @@
-import {marketingScore,SCORE_BANDS,bonusReason} from './scoring.js?v=ac48dfda448d';
+import {marketingScore,SCORE_BANDS,bonusReason} from './scoring.js?v=38556b11ed3e';
 const node=(tag,text,cls)=>{const n=document.createElement(tag);if(text!==undefined)n.textContent=text;if(cls)n.className=cls;return n;};
 const num=n=>Number.isFinite(n)?n.toLocaleString('ko-KR',{maximumFractionDigits:2}):'미확인';
 const signed=n=>n>0?'+'+n:String(n);

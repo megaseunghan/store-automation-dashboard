@@ -12,6 +12,42 @@ const MISSING_LABELS={mkt:'마케팅',facility:'시설관리',cleaning:'요일�
 const UNAVAILABLE_LABELS={sales:'목표 산출 불가',cost:'원가율 확인 필요',labor:'인건비율 확인 필요',hit:'적중률 확인 필요'};
 
 // Display tables are supplied by the server for this store and policy month.
+const DB_NAMES=['행궁','신동','팔달','심금','사색','야미옥'];
+const FAILURE_SOURCES=new Set(DB_NAMES.flatMap(name=>['종합 평가','월 집계','손익계산서','직원 일일 급여','파트 일일 급여'].map(label=>`${name} ${label}`)));
+// Fixed expected names only; tests compare this catalog against the PL source configuration.
+const FAILURE_PROPERTIES=new Set([
+ "날짜","마케팅 Score","시설관리 (10점)","요일별 청소 구역 (10점)","R&D 점수","대표 지시 차감",
+ "원가 본부 협의 완료","인센티브 시작일","DB.손익계산서","DB.  실제/예상 매출 월 집계","매출 일치율 누적 평균 (View)","연월",
+ "매출","카드 매출액","현금 매출","할인액","주류 매입","식자재 매입",
+ "비품 매입","시설보수비","임대료","고정비","마케팅비","공과금 / 변동비",
+ "직원 누적 급여","직원 세무사 차액반영","파트타이머 누적 급여","파트 세무사 차액반영","직원 누적 원천징수","파트타이머 누적 원천징수",
+ "파출부 급여","일일 실급여 (사측)","세무사차액","세무사 차액반영","일일 원천징수액 (사측)","실 급여액",
+ "원천징수액 (수습포함)","포함시킬 손익계산서 선택","손익계산서","총 매출","할인금액","총 매입",
+ "총 비용","직원 종합 급여","파트타이머 종합 급여","직원 종합 원천징수","파트타이머 종합 원천징수","인건비",
+ "카드 수수료","부가세 예수금","종합소득세 예수금","점포순수익","DB. 매출","카드",
+ "현금","DB. 매입","주류 매입가격","식자재 매입가격","비품/소모품 매입가격","DB. 비용",
+ "시설보수 비용가격","임대료 비용가격","고정비 비용가격","마케팅 비용가격","공과금/변동비 가격","DB. 직원 일일 급여 현황",
+ "DB. 파트타이머 일일 급여","DB. 파출","급여"
+]);
+function safeFailure(value){
+ if(!value||!FAILURE_SOURCES.has(value.source)||!['not-shared','rate-limit','schema','other'].includes(value.kind))return null;
+ return {source:value.source,kind:value.kind,notionStatus:Number.isInteger(value.notionStatus)&&value.notionStatus>=100&&value.notionStatus<=599?value.notionStatus:null,...(value.kind==='schema'?{missingProperties:(Array.isArray(value.missingProperties)?value.missingProperties:[]).filter(name=>FAILURE_PROPERTIES.has(name))}:{})};
+}
+function failureNote(failure){
+ if(!failure)return '';
+ const text=failure.kind==='not-shared'?`노션 통합에 이 DB를 연결해 주세요: ${failure.source}`:failure.kind==='schema'?`${failure.source} · 없는 속성: ${failure.missingProperties?.join(', ')||'필수 속성 확인 필요'}`:failure.kind==='rate-limit'?`${failure.source} · 노션 요청이 많습니다. 잠시 후 다시 시도해 주세요.`:`${failure.source} · 연결 상태를 확인해 주세요.`;
+ return `<p class="eval-failure-note">${esc(text)}</p>`;
+}
+export function renderEvaluationProgress(progress){
+ const total=progress.total,completed=Math.min(total,Math.max(0,progress.completed)),percent=Math.round(completed/total*100);
+ return `<section class="eval-panel eval-loading-progress"><p class="eval-progress-status" aria-live="polite">${completed}/${total} 매장 · ${percent}%</p><div class="eval-progress-track" data-eval-progress role="progressbar" aria-valuenow="${percent}" aria-valuemin="0" aria-valuemax="100" aria-label="종합평가 불러오기 진행률"><span class="eval-progress-fill" style="transform:scaleX(${completed/total})"></span></div></section>`;
+}
+const retryButton=item=>`<button type="button" data-eval-action="retry-store" data-eval-retry-store="${esc(item.id)}" ${item.retrying?'disabled':''}>${item.retrying?'다시 불러오는 중':'다시 시도'}</button>`;
+function pendingRow(item,row,admin){
+ const failed=item.status==='error';
+ return `<tr data-eval-load-store="${esc(item.id)}" class="eval-store-loading ${failed?'eval-store-error':''}"><th scope="row"><span class="eval-store-name">${esc(item.name)}</span><span class="eval-row-state">${failed?'연결 확인 필요':'불러오는 중'}</span></th><td colspan="7" class="eval-loading-cell">${failed?`<p>${item.statusCode===503?'노션 연결 설정을 확인해 주세요.':'종합평가를 불러오지 못했습니다. 다시 시도해 주세요.'}</p>${admin?failureNote(row?.failure):''}${retryButton(item)}`:'불러오는 중'}</td></tr>`;
+}
+
 const safeBand=band=>Array.isArray(band)&&band.length===3&&(band[0]===null||finite(band[0]))&&(band[1]===null||finite(band[1]))&&finite(band[2]);
 const inBand=(value,[min,max])=>finite(value)&&(min===null||value>=min)&&(max===null||value<=max);
 const bandLabel=([min,max],unit='%')=>min===null?`${number(max)}${unit} 이하`:max===null?`${number(min)}${unit} 이상`:`${number(min)}–${number(max)}${unit}`;
@@ -44,10 +80,10 @@ export function adaptEvaluationResponse(response,{role='viewer'}={}){
    costAgreement:{required:row.costAgreement?.required===true,completed:row.costAgreement?.completed===true,pending:row.costAgreement?.pending===true},
    provisionalReasons:(Array.isArray(row.provisionalReasons)?row.provisionalReasons:[]).filter(reason=>reason==='cost-agreement'),
    status:['ok','provisional','incomplete','missing','mapping','duplicate'].includes(row.status)?row.status:'incomplete',
-   check:{state:['ok','provisional','incomplete','missing','mapping','duplicate'].includes(row.check?.state)?row.check.state:'incomplete'},
+   check:{state:['ok','provisional','incomplete','missing','mapping','duplicate'].includes(row.check?.state)?row.check.state:'incomplete',...(row.check?.retryable===true?{retryable:true}:{})},
    incentive:{state:['ok','provisional','incomplete'].includes(row.incentive?.state)?row.incentive.state:'incomplete'},
    ...(row.message?{message:admin?String(row.message):'일부 매장 자료 확인 중'}:{})};
-  if(admin){result.targetSales=numeric(row.targetSales);result.financials=Object.fromEntries(['sales','cogs','labor','netProfit'].map(key=>[key,numeric(row.financials?.[key])]));result.incentive={...result.incentive,total:numeric(row.incentive?.total),allocations:Object.fromEntries(['goFo','o','p'].map(key=>[key,numeric(row.incentive?.allocations?.[key])]))};}
+  if(admin){const failure=safeFailure(row.failure);if(failure)result.failure=failure;result.targetSales=numeric(row.targetSales);result.financials=Object.fromEntries(['sales','cogs','labor','netProfit'].map(key=>[key,numeric(row.financials?.[key])]));result.incentive={...result.incentive,total:numeric(row.incentive?.total),allocations:Object.fromEntries(['goFo','o','p'].map(key=>[key,numeric(row.incentive?.allocations?.[key])]))};}
   return result;
  });
  return {month:response.month,rows,role:admin?'admin':'viewer',fetchedAt:typeof response.fetchedAt==='string'?response.fetchedAt:null};
@@ -63,17 +99,21 @@ export function renderEvaluation(model,state){
  const rows=model.rows.map((row,index)=>({row,index})).sort((a,b)=>{
   const x=sort==='total'?a.row.total:a.row.scores[sort],y=sort==='total'?b.row.total:b.row.scores[sort];return x===null&&y!==null?1:y===null&&x!==null?-1:((y??0)-(x??0)||a.index-b.index);
  }).map(item=>item.row);
+ const progress=state.progress,loadById=new Map((progress?.items??[]).map(item=>[item.id,item])),loading=progress&&progress.completed<progress.total,allFailed=progress?.items.length>0&&progress.items.every(item=>item.status==='error'),connectionErrors=progress?.items.filter(item=>item.status==='error').length??0;
  const missingStores=model.rows.filter(row=>row.missing.length).length,problemStores=model.rows.filter(row=>rowIssues(row).length||row.status!=='ok').length;
- const calculated=model.rows.length>0&&model.rows.every(row=>finite(row.total));
+ const calculated=!loading&&!connectionErrors&&model.rows.length>0&&model.rows.every(row=>finite(row.total));
  const review=missingStores?`검토 중 · 미입력 ${missingStores}곳`:problemStores?`검토 중 · 자료 확인 ${problemStores}곳`:'검토 완료';
  const ruleNote=model.rows[0]?.policy.id==='revised-2026-10'?"점수·인센티브는 노션 'DB. 종합 평가' 규칙(HR북 기준 통일)으로 계산합니다.":"점수·인센티브는 해당 월 매장의 이전 노션 'DB. 종합 평가' 규칙으로 계산합니다.";
- const heading=calculated?review:'산출 확인 필요';
- const totalRows=rows.map(row=>{
-  const pending=row.status!=='ok',rank=finite(row.total)&&!pending?rows.filter(other=>other.status==='ok'&&finite(other.total)&&other.total>row.total).length+1:null;
+ const heading=loading?'노션에서 종합평가를 불러오고 있습니다':connectionErrors?`연결 확인 필요 · ${connectionErrors}곳`:calculated?review:'산출 확인 필요';
+ const readyRows=new Map(rows.map(row=>[row.store,row]));
+ const ordered=progress?loading?progress.items.map(item=>readyRows.get(item.id)||item):[...rows,...progress.items.filter(item=>!readyRows.has(item.id))]:rows;
+ const totalRows=ordered.map(row=>{
+  const item=loadById.get(row.store||row.id);if(!row.store||item?.status==='error'&&(row.check.state==='mapping'||!Object.values(row.scores).some(finite)))return pendingRow(item,row.store?row:null,model.role==='admin');
+  const pending=row.status!=='ok',rank=!loading&&finite(row.total)&&!pending?rows.filter(other=>other.status==='ok'&&finite(other.total)&&other.total>row.total).length+1:null;
   const adj=row.adjustments;
-  return `<tr data-eval-store="${esc(row.store)}" tabindex="0" aria-label="${esc(row.name)} 종합평가 상세" class="${pending?'is-pending':''}"><th scope="row"><span class="eval-store-name">${esc(row.name)}</span><span class="eval-row-state">${rank?`${rank}위 · `:''}${rowState(row)}</span>${row.missing.length?`<span class="eval-input-badge">미입력 ${row.missing.length}</span>`:''}${row.costAgreement.pending?'<span class="eval-input-badge eval-cost-agreement-badge">본부 협의 필요</span>':''}</th>${[['sales','매출'],['cost','원가'],['labor','인건'],['ops','운영']].map(([key,label])=>`<td data-label="${label}" class="eval-number">${missing(row.scores[key])}</td>`).join('')}<td data-label="마케팅" class="eval-number"><a class="eval-marketing-link" href="${esc(marketingLink(row))}" data-view-link="dashboard" aria-label="${esc(row.name)} 마케팅 상세">${missing(row.scores.mkt)}<span class="eval-link-hint">상세</span></a></td><td data-label="가감" class="eval-number">${adj===null?missing(null):signed(adj)}</td><td data-label="총점" class="eval-total"><strong>${missing(row.total)}</strong><span>${esc(tierText(row))}</span>${pending?'<small>잠정 · 자료 확인</small>':''}</td></tr>`;
+  return `<tr data-eval-store="${esc(row.store)}" tabindex="0" aria-label="${esc(row.name)} 종합평가 상세" class="${pending?'is-pending':''}"><th scope="row"><span class="eval-store-name">${esc(row.name)}</span><span class="eval-row-state">${rank?`${rank}위 · `:''}${rowState(row)}</span>${row.missing.length?`<span class="eval-input-badge">미입력 ${row.missing.length}</span>`:''}${row.costAgreement.pending?'<span class="eval-input-badge eval-cost-agreement-badge">본부 협의 필요</span>':''}${item?.status==='error'||row.check.retryable?`<span class="eval-row-state">연결 확인 필요</span>${model.role==='admin'?failureNote(row.failure):''}${retryButton(item??{id:row.store})}`:''}</th>${[['sales','매출'],['cost','원가'],['labor','인건'],['ops','운영']].map(([key,label])=>`<td data-label="${label}" class="eval-number">${missing(row.scores[key])}</td>`).join('')}<td data-label="마케팅" class="eval-number"><a class="eval-marketing-link" href="${esc(marketingLink(row))}" data-view-link="dashboard" aria-label="${esc(row.name)} 마케팅 상세">${missing(row.scores.mkt)}<span class="eval-link-hint">상세</span></a></td><td data-label="가감" class="eval-number">${adj===null?missing(null):signed(adj)}</td><td data-label="총점" class="eval-total"><strong>${missing(row.total)}</strong><span>${esc(tierText(row))}</span>${pending?'<small>잠정 · 자료 확인</small>':''}</td></tr>`;
  }).join('');
- return `<div class="eval-shell"><div class="eval-controls"><label>평가 월<input type="month" data-eval-month value="${esc(state.month)}" aria-label="평가 월"></label><label>정렬<select data-eval-sort aria-label="종합평가 정렬">${[['total','종합 점수'],['sales','매출'],['cost','원가'],['labor','인건'],['ops','운영'],['mkt','마케팅']].map(([key,label])=>`<option value="${key}" ${key===sort?'selected':''}>${label}</option>`).join('')}</select></label></div><section class="eval-panel eval-status" aria-labelledby="eval-status-heading"><div class="eval-status-top"><div><p class="eval-kicker">${esc(model.month)} 종합평가</p><h2 id="eval-status-heading">${esc(heading)}</h2><p class="eval-status-why">${problemStores?`자료 확인 ${problemStores}곳 · 확인되지 않은 항목은 0으로 채우지 않습니다.`:'연결된 자료와 필수 입력을 확인했습니다.'}</p></div><ol class="eval-stepper" aria-label="평가 단계">${['산출','검토','대표 승인','확정'].map((label,index)=>`<li class="${index===0?(calculated?'is-done':'is-current'):index===1&&calculated?(problemStores?'is-current':'is-done'):'is-future'}" ${index>1?'aria-disabled="true"':''}><span>${index+1}</span>${label}${index>1?'<small>다음 단계</small>':''}</li>`).join('')}</ol></div><p class="eval-rule-note">${esc(ruleNote)}</p></section><section class="eval-panel eval-table" aria-labelledby="eval-table-heading"><div class="eval-panel-head"><h2 id="eval-table-heading">매장별 점수 <small>${rows.length}곳</small></h2><span>높은 순</span></div>${rows.length?`<table class="eval-score-table"><thead><tr><th scope="col">매장</th>${[['매출','20+5'],['원가','15+3'],['인건','15'],['운영','20'],['마케팅','30']].map(([label,max])=>`<th scope="col">${label}<small>${max}</small></th>`).join('')}<th scope="col">가감</th><th scope="col">총점·구간</th></tr></thead><tbody>${totalRows}</tbody></table>`:'<p class="eval-empty">이 달의 종합평가 자료를 확인해 주세요.</p>'}<p class="eval-table-foot">가감 = 매출 적중 + R&D + 대표 지시 차감. 잠정 점수는 확인된 항목의 소계이며, 미입력 항목이 있는 매장은 순위를 확정하지 않습니다.</p></section></div>`;
+ return `<div class="eval-shell">${progress&&state.renderProgress!==false?renderEvaluationProgress(progress):''}${allFailed?`<section class="eval-panel eval-global-error"><p>${progress.items.every(item=>item.statusCode===503)?'노션 연결 설정을 확인해 주세요.':'종합평가를 불러오지 못했습니다. 다시 시도해 주세요.'}</p><button type="button" data-eval-action="retry">다시 시도</button></section>`:''}<div class="eval-controls"><label>평가 월<input type="month" data-eval-month value="${esc(state.month)}" aria-label="평가 월"></label><label>정렬<select data-eval-sort aria-label="종합평가 정렬">${[['total','종합 점수'],['sales','매출'],['cost','원가'],['labor','인건'],['ops','운영'],['mkt','마케팅']].map(([key,label])=>`<option value="${key}" ${key===sort?'selected':''}>${label}</option>`).join('')}</select></label></div><section class="eval-panel eval-status" aria-labelledby="eval-status-heading"><div class="eval-status-top"><div><p class="eval-kicker">${esc(model.month)} 종합평가</p><h2 id="eval-status-heading">${esc(heading)}</h2><p class="eval-status-why">${loading?'끝난 매장부터 점수를 표시합니다.':connectionErrors?`연결 확인 ${connectionErrors}곳 · 나머지 매장의 확인된 자료를 표시합니다.`:problemStores?`자료 확인 ${problemStores}곳 · 확인되지 않은 항목은 0으로 채우지 않습니다.`:'연결된 자료와 필수 입력을 확인했습니다.'}</p></div><ol class="eval-stepper" aria-label="평가 단계">${['산출','검토','대표 승인','확정'].map((label,index)=>`<li class="${index===0?(calculated?'is-done':'is-current'):index===1&&calculated?(problemStores?'is-current':'is-done'):'is-future'}" ${index>1?'aria-disabled="true"':''}><span>${index+1}</span>${label}${index>1?'<small>다음 단계</small>':''}</li>`).join('')}</ol></div><p class="eval-rule-note">${esc(ruleNote)}</p></section><section class="eval-panel eval-table" aria-labelledby="eval-table-heading"><div class="eval-panel-head"><h2 id="eval-table-heading">매장별 점수 <small>${progress?.total??rows.length}곳</small></h2><span>높은 순</span></div>${ordered.length?`<table class="eval-score-table"><thead><tr><th scope="col">매장</th>${[['매출','20+5'],['원가','15+3'],['인건','15'],['운영','20'],['마케팅','30']].map(([label,max])=>`<th scope="col">${label}<small>${max}</small></th>`).join('')}<th scope="col">가감</th><th scope="col">총점·구간</th></tr></thead><tbody>${totalRows}</tbody></table>`:'<p class="eval-empty">이 달의 종합평가 자료를 확인해 주세요.</p>'}<p class="eval-table-foot">가감 = 매출 적중 + R&D + 대표 지시 차감. 잠정 점수는 확인된 항목의 소계이며, 미입력 항목이 있는 매장은 순위를 확정하지 않습니다.</p></section></div>`;
 }
 
 function renderBand(key,row,label){
