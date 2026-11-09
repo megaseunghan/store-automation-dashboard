@@ -1,6 +1,14 @@
 /* Read-only evaluation presentation, sharing the approved application palette. */
 .eval-shell { display:grid; gap:16px; min-width:0; font-variant-numeric:tabular-nums; }
 .eval-controls { display:flex; flex-wrap:wrap; gap:8px; }
+.eval-controls-host { margin:12px 0; }
+.eval-month-control { flex:1 1 210px; min-width:0; }
+.eval-month-field { margin-top:5px; display:flex; gap:4px; align-items:center; }
+.eval-month-field input { min-width:0; flex:1; }
+.eval-month-field button { flex:0 0 44px; width:44px; min-height:44px; padding:0; font-size:24px; border-radius:var(--radius-pill); border:1px solid var(--glass-edge); color:var(--text); background:var(--glass-fill-2); }
+.eval-month-field button:disabled { opacity:.35; }
+.eval-month-control [data-eval-month-hint] { margin:5px 0 0; font-size:12px; color:var(--text-2); }
+.eval-month-field input[aria-invalid="true"] { outline:2px solid var(--text); outline-offset:1px; }
 .eval-controls label { display:flex; flex-direction:column; gap:5px; min-width:0; flex:1 1 130px; color:var(--text); font-size:12px; }
 .eval-controls input,.eval-controls select { width:100%; min-height:44px; font-size:16px; border-radius:var(--radius-pill); background:var(--glass-fill-2); color:var(--text); border:1px solid var(--glass-edge); }
 .eval-panel { min-width:0; padding:16px; border:1px solid var(--glass-edge); border-radius:var(--radius-lg); background:var(--glass-fill); box-shadow:var(--glass-shadow); -webkit-backdrop-filter:var(--glass-blur); backdrop-filter:var(--glass-blur); }
