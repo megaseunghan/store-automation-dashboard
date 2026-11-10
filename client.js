@@ -1,4 +1,4 @@
-import { RUNTIME } from './runtime-config.js?v=5f5f1ae78b16';
+import { RUNTIME } from './runtime-config.js?v=fa3e9bb63c8f';
 export function createTransport(config, { fetcher = fetch, storage = null } = {}) {
   const cloud = config.mode === 'cloud';
   let memorySession = null, sessionVersion = 0;
@@ -27,9 +27,11 @@ export function createTransport(config, { fetcher = fetch, storage = null } = {}
     try {
     const response = await fetcher(endpoint(path), { method: data === undefined ? 'GET' : 'POST', headers, ...(controller ? {signal:controller.signal} : {}), ...(cloud ? { credentials: 'omit' } : {}), ...(data !== undefined ? { body: JSON.stringify(data) } : {}) });
     if (!response.ok) {
-      let error; try { error = (await response.json()).error; } catch { /* Non-JSON upstream failures use a visible, non-sensitive message. */ }
+      let error,payload; try { payload=await response.json();error=payload.error; } catch { /* Non-JSON upstream failures use a visible, non-sensitive message. */ }
       if (cloud && response.status === 401 && requestSessionVersion === sessionVersion && readSession() === requestToken) writeSession('');
-      const failure=new Error(error || `요청에 실패했습니다. (${response.status})`);failure.status=response.status;throw failure;
+      const failure=new Error(error || `요청에 실패했습니다. (${response.status})`);failure.status=response.status;
+      if(path==='/api/eval/confirm'&&response.status===409&&['total','incentiveTotal'].every(key=>typeof payload?.current?.[key]==='number'&&Number.isFinite(payload.current[key])))failure.current={total:payload.current.total,incentiveTotal:payload.current.incentiveTotal};
+      throw failure;
     }
     if (text) return response.text();
     const result = await response.json();

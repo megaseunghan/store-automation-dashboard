@@ -17,7 +17,7 @@
 .eval-status h2 { margin:0; font-size:18px; }
 .eval-status-why { margin:8px 0 0; font-size:13px; line-height:1.6; color:var(--text); }
 .eval-rule-note,.eval-table-foot { margin:14px 0 0; padding-top:12px; border-top:1px solid var(--line); font-size:12px; line-height:1.6; color:var(--text-2); }
-.eval-stepper { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:6px; list-style:none; margin:0; padding:0; }
+.eval-stepper { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; list-style:none; margin:0; padding:0; }
 .eval-stepper li { display:flex; flex-direction:column; align-items:flex-start; gap:6px; border-top:3px solid var(--line); padding-top:8px; color:var(--text-2); font-size:12px; font-weight:600; }
 .eval-stepper li>span { display:grid; place-items:center; width:22px; height:22px; border-radius:var(--radius-circle); background:var(--panel-2); color:var(--text); }
 .eval-stepper .is-done,.eval-stepper .is-current { border-top-color:var(--accent); color:var(--text); }
@@ -78,6 +78,25 @@
 .eval-policy-label { display:inline-block; margin:0 0 8px; padding:3px 7px; border:1px solid var(--line); border-radius:var(--radius-sm); color:var(--text); background:var(--panel-2); font-size:12px; }
 .eval-agreement-status { margin:8px 0; color:var(--text); font-size:12px; line-height:1.6; }
 .eval-agreement-status>span { color:var(--text); }
+.eval-confirmation { margin-top:8px; font-weight:400; font-size:12px; line-height:1.6; overflow-wrap:anywhere; }
+.eval-confirmation time { display:block; color:var(--text-2); font-size:11px; }
+.eval-confirmed-badge { color:var(--accent); font-weight:700; }
+.eval-confirmation button,.eval-confirm-actions button { min-height:44px; padding:8px 12px; margin-top:6px; }
+.eval-confirmation button:disabled { opacity:.55; }
+.eval-confirm-drift,.eval-confirm-error { margin:6px 0; padding-left:8px; border-left:2px solid var(--accent); color:var(--text); font-size:12px; }
+.eval-confirm-unavailable { margin:4px 0; color:var(--text-2); font-size:12px; }
+.eval-confirm-status { font-size:13px; color:var(--text); line-height:1.6; }
+.eval-confirm-status:empty,.eval-confirm-error:empty { display:none; }
+.eval-confirm-dialog { max-width:480px; }
+.eval-confirm-dialog>p { line-height:1.7; overflow-wrap:anywhere; }
+.eval-confirm-dialog label { display:grid; gap:6px; font-size:14px; }
+.eval-confirm-dialog label small { color:var(--text-2); font-weight:400; }
+.eval-confirm-dialog textarea { display:block; width:100%; box-sizing:border-box; min-height:96px; margin:8px 0 16px; font-size:16px; border:1px solid var(--glass-edge); border-radius:var(--radius-sm); background:var(--glass-fill-2); color:var(--text); padding:10px; resize:vertical; }
+.eval-confirm-summary { display:grid; gap:12px; padding:16px 0; }
+.eval-confirm-summary>div { display:flex; flex-wrap:wrap; justify-content:space-between; gap:8px; }
+.eval-confirm-summary dd { margin:0; font-weight:700; font-variant-numeric:tabular-nums; }
+.eval-confirm-actions { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:8px; }
+.eval-fixed-summary { padding:12px; border:1px solid var(--glass-edge); border-radius:var(--radius-sm); }
 @media(min-width:1000px) { .eval-status-top { grid-template-columns:minmax(0,1fr) minmax(320px,420px); align-items:center; } .eval-controls label { flex:none; width:210px; } .eval-panel { padding:20px; } }
 @media(max-width:767px) {
  .eval-table { padding:12px; }

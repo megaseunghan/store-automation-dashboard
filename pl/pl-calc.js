@@ -1,4 +1,4 @@
-import {freezePL} from './pl-adapter.js?v=5f5f1ae78b16';
+import {freezePL} from './pl-adapter.js?v=fa3e9bb63c8f';
 export const PL_AMOUNT_KEYS=Object.freeze(['sales','cogs','staff','part','labor','expense','cardFee','vat','incomeTax','grossProfit','opProfit','netProfit']);
 const finite=value=>typeof value==='number'&&Number.isFinite(value);
 const round2=value=>Math.round((value+Number.EPSILON)*100)/100;

@@ -1,7 +1,7 @@
-@import url('./tokens.css?v=5f5f1ae78b16');
-@import url('./base.css?v=5f5f1ae78b16');
-@import url('./pl/pl.css?v=5f5f1ae78b16');
-@import url('./eval/eval.css?v=5f5f1ae78b16');
+@import url('./tokens.css?v=fa3e9bb63c8f');
+@import url('./base.css?v=fa3e9bb63c8f');
+@import url('./pl/pl.css?v=fa3e9bb63c8f');
+@import url('./eval/eval.css?v=fa3e9bb63c8f');
 :root {
  --spacing-2: 2px;
  --spacing-3: 3px;
@@ -428,3 +428,35 @@ label,summary,.score-footnote,.results-section>.section-title .small { color:var
 .data-table th,.reading-table th,.score-bonus-contributions li>span { color:var(--text); }
 @media(max-width:640px) { .view-nav { grid-template-columns:repeat(5,minmax(0,1fr)); } }
 @media(max-width:360px) { .view-nav a { font-size:12px; } }
+
+/* Optional single-store supplemental collection; existing monthly controls stay stable. */
+.collect-range-toggle{min-height:44px;display:flex;align-items:center;gap:10px}
+.collect-range-toggle input{width:22px;height:22px;flex:0 0 22px}
+.collect-range-fields{grid-column:1/-1;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;min-width:0}
+.collect-range-fields[hidden]{display:none}
+.collect-range-fields>p{grid-column:1/-1;margin:0}
+.collect-range-fields label{min-width:0}
+.collect-range-fields input{width:100%;min-width:0;min-height:44px;font-size:16px;box-sizing:border-box}
+.field-error{display:block;max-width:100%;color:var(--color-error,#b23d40);font-size:13px;line-height:1.5;overflow-wrap:anywhere}
+.field-error:empty{display:none}
+[aria-invalid=true]{outline:2px solid var(--color-error,#b23d40);outline-offset:2px}
+@media(max-width:767px){.collect-range-fields{grid-template-columns:minmax(0,1fr)}.collect-range-toggle{grid-column:1/-1}}
+
+/* Frozen collection references remain visible beside the score they explain. */
+.marketing-basis{padding:12px 0;border-block:1px solid var(--glass-edge);display:flex;flex-wrap:wrap;gap:8px;align-items:center;min-width:0}
+.marketing-basis-text,.marketing-basis-newer,.marketing-basis-warning{flex:1 0 100%;margin:0;line-height:1.6;overflow-wrap:anywhere;font-size:13px}
+.marketing-basis-state{font-size:12px;color:var(--text-2)}
+.marketing-basis-warning{color:var(--risk)}
+.marketing-basis button{min-height:44px;white-space:normal;font-size:13px}
+.marketing-basis-dialog{width:min(560px,calc(100vw - 24px));max-width:calc(100vw - 24px);max-height:calc(100dvh - 24px);overflow:auto;box-sizing:border-box;padding:20px;border:1px solid var(--glass-edge);border-radius:20px;color:var(--text);background:var(--surface-opaque);box-shadow:0 16px 64px #0003}
+.marketing-basis-dialog::backdrop{background:#101a2c66}
+.marketing-basis-dialog h2{font-size:20px;margin:0 0 12px}
+.marketing-basis-dialog select{width:100%;min-width:0;min-height:44px;font-size:16px;box-sizing:border-box;margin:8px 0 16px}
+.marketing-basis-dialog fieldset{min-width:0;margin:0 0 12px;border:1px solid var(--glass-edge);border-radius:12px;padding:12px}
+.marketing-basis-option{display:flex;align-items:center;gap:10px;min-height:44px;overflow-wrap:anywhere;font-size:14px;padding:8px 0}
+.marketing-basis-option input{width:22px;min-width:22px;min-height:22px;margin:0;accent-color:var(--accent)}
+.marketing-basis-actions{display:flex;flex-wrap:wrap;gap:10px;justify-content:flex-end;margin-top:16px}
+.marketing-basis-actions button{min-height:44px;font-size:16px}
+.marketing-basis-dialog-notice{font-size:14px;line-height:1.6;overflow-wrap:anywhere}
+.eval-marketing-basis{display:block;font-size:11px;line-height:1.5;color:var(--text-2);white-space:normal;overflow-wrap:anywhere;max-width:190px;margin-top:6px;font-weight:400}
+@media(max-width:767px){.marketing-basis-dialog{padding:16px}.marketing-basis-actions{flex-direction:column}.marketing-basis-actions button{width:100%}.eval-marketing-basis{max-width:none}}

@@ -1,4 +1,6 @@
-import {marketingScore,SCORE_BANDS,bonusReason} from './scoring.js?v=5f5f1ae78b16';
+import {marketingScore,SCORE_BANDS,bonusReason} from './scoring.js?v=fa3e9bb63c8f';
+import {resolveMarketingBasis,combineMarketingBasis,newerGrowth} from './marketing-basis.js?v=fa3e9bb63c8f';
+import {appendMarketingBasis,cancelMarketingBasisDialog} from './marketing-basis-ui.js?v=fa3e9bb63c8f';
 const node=(tag,text,cls)=>{const n=document.createElement(tag);if(text!==undefined)n.textContent=text;if(cls)n.className=cls;return n;};
 const num=n=>Number.isFinite(n)?n.toLocaleString('ko-KR',{maximumFractionDigits:2}):'미확인';
 const signed=n=>n>0?'+'+n:String(n);
@@ -22,32 +24,32 @@ function composition(score){
  group.append(node('p',negative.length?`감점 ${negative.map(([,label,value])=>`${label} ${signed(value)}점`).join(' · ')} · 막대는 확인된 양수 구성`:'막대는 확인된 점수 구성 · 미확인 항목은 제외','score-composition-note'));
  return group;
 }
-export function createScoreWorkspace({api,stores}){
+export function createScoreWorkspace({api,stores,isReadOnly=()=>false,onBasisChange}){
  let sequence=0;const cache=new Map(),opened=new Set();
  async function report(id){if(!cache.has(id))cache.set(id,api('/api/report/'+id).catch(e=>{cache.delete(id);throw e;}));return cache.get(id);}
  async function render(snapshot,month,target){
+  cancelMarketingBasisDialog();
   const current=++sequence;target.replaceChildren(node('p','점수와 게시물을 확인하고 있어요.','loading-text'));target.setAttribute('aria-busy','true');
-  const periodReports=snapshot.reports.filter(r=>r.month===month).sort((a,b)=>b.createdAt.localeCompare(a.createdAt));
-  const latest=new Map();for(const r of periodReports)for(const x of r.results){const key=x.store+':'+x.platform;if(!latest.has(key))latest.set(key,{id:r.id,platform:x.platform,store:x.store});}
-  if(!latest.size){target.replaceChildren(node('p','이 달의 수집 자료가 아직 없습니다.','empty'));target.setAttribute('aria-busy','false');return;}
-  const ids=[...new Set([...latest.values()].map(x=>x.id))];
-  const [facts,...runs]=await Promise.allSettled([api('/api/score-inputs?month='+encodeURIComponent(month)),...ids.map(report)]);
-  if(current!==sequence)return;
-  const inputs=facts.status==='fulfilled'?facts.value:{month,reviews:{},previousActivity:{}};
-  const full=new Map();runs.forEach((r,index)=>{if(r.status==='fulfilled')full.set(ids[index],r.value);});
-  const results=[...latest.values()].flatMap(x=>{const run=full.get(x.id);const row=run?.results.find(r=>r.store===x.store&&r.platform===x.platform);return row?[{...row,month:run.month}]:[];});
-  const scored=stores().map((store,index)=>({store,index,score:marketingScore(store,month,results,inputs)}));
+  const facts=await Promise.allSettled([api('/api/score-inputs?month='+encodeURIComponent(month))]);if(current!==sequence)return;
+  const inputs=facts[0].status==='fulfilled'?facts[0].value:{month,reviews:{},previousActivity:{}};
+  const resolutions=new Map(stores().map(store=>[store.id,facts[0].status==='fulfilled'?resolveMarketingBasis({month,store:store.id,reports:snapshot.reports,basis:inputs.basis?.[store.id]}):{state:'unavailable',regular:null,supplements:[],pinnedAt:null,newer:null,warningDays:0}]));
+  const ids=[...new Set([...resolutions.values()].flatMap(r=>[r.regular,...r.supplements,r.newer].filter(Boolean).map(ref=>ref.reportId)))];
+  if(facts[0].status==='fulfilled'&&!ids.length&&!Object.keys(inputs.basis??{}).length){target.replaceChildren(node('p','이 달의 수집 자료가 아직 없습니다.','empty'));target.setAttribute('aria-busy','false');return;}
+  const fetched=await Promise.allSettled(ids.map(report));if(current!==sequence)return;
+  const runs=fetched.flatMap((r,index)=>r.status==='fulfilled'?[{...r.value,id:ids[index],createdAt:r.value.createdAt??snapshot.reports.find(s=>s.id===ids[index])?.createdAt}]:[]);
+  const scored=stores().map((store,index)=>{const resolution=resolutions.get(store.id),combined=combineMarketingBasis({month,store:store.id,resolution,runs});return {store,index,resolution:combined.available?resolution:{...resolution,state:'unavailable'},growth:newerGrowth(resolution,runs),score:marketingScore(store,month,combined.available?combined.results:[],inputs)};});
   const ranked=scored.filter(({score})=>canRank(score)).sort((a,b)=>b.score.total-a.score.total||a.index-b.index);
   const rankByStore=new Map(ranked.map(({store,score})=>[store.id,ranked.filter(item=>item.score.total>score.total).length+1]));
   scored.sort((a,b)=>canRank(a.score)&&canRank(b.score)?b.score.total-a.score.total||a.index-b.index:canRank(a.score)?-1:canRank(b.score)?1:a.index-b.index);
   const grid=node('div',undefined,'score-grid');
-  for(const {store,score:s} of scored){
+  for(const {store,score:s,resolution,growth} of scored){
    const card=node('article',undefined,'score-card');card.dataset.scoreStore=store.id;
    const head=node('div',undefined,'score-card-head'),title=node('div',undefined,'score-title');title.append(node('p','마케팅 30+α','score-kind'),node('h3',store.name));
    const rank=rankByStore.get(store.id),badge=node('span',rank?`${rank}위`:'순위 보류','score-rank'+(rank?'':' is-pending'));badge.setAttribute('aria-label',rank?`확인 자료 기준 ${rank}위`:'미확인 항목이 있어 순위 보류');
    head.append(title,badge);card.append(head,node('span',s.state,'score-state'));
    const score=node('div',undefined,'score-number');score.append(node('strong',s.total===null?'—':num(s.total)),node('span','점'));card.append(score);
    card.append(node('p',s.total===null?'확인 후 점수를 표시해요.':'기본 30점 + 가산 / 미확인 항목 제외','score-caption'));
+   appendMarketingBasis(card,{month,store,resolution,growth,isReadOnly:isReadOnly(),api,onChange:onBasisChange});
    card.append(node('p','네이버 리뷰 10 + SNS 20 = 기본 30점 · 가산 별도','score-formula'),composition(s));
    const breakdown=node('dl',undefined,'score-breakdown');for(const [label,value] of [['네이버',s.reviewPoints],['SNS',s.sns],['가산점',s.complete?s.bonus:null]]){const item=node('div',undefined,'score-component');item.append(node('dt',label),node('dd',value===null?'확인 중':(label==='가산점'?signed(value):num(value))+'점'));if(label==='가산점'&&s.complete&&!s.bonusComplete)item.append(node('span','추가 확인','score-note'));breakdown.append(item);}card.append(breakdown);
    const details=node('details',undefined,'score-detail');details.open=opened.has(store.id);details.addEventListener('toggle',()=>{if(details.isConnected){if(details.open)opened.add(store.id);else opened.delete(store.id);}});const summary=node('summary');summary.setAttribute('aria-label',store.name+' 점수 근거와 게시물');summary.append(node('span','점수 근거와 게시물'),node('span',s.count===null?'확인 중':s.count+'건','score-count'));details.append(summary);
@@ -56,7 +58,7 @@ export function createScoreWorkspace({api,stores}){
    const band=SCORE_BANDS.find(b=>b.grade===s.performanceGrade);if(band)why.append(node('p',`성과 ${band.grade} 기준: 평균 조회 ${num(band.views)}회 이상${s.policy==='views-only'?'':` / 저장+공유 ${num(band.actions)}회 이상`}`,'score-note'));
    if(s.count>0){why.append(node('p',`조회 평균 ${num(s.viewAverage)}회`));if(s.policy!=='views-only')why.append(node('p',`저장+공유 평균 ${num(s.actionAverage)}회${s.actionMissing?' 이상 (확인된 수치 기준)':''}`));}
    why.append(node('p',s.complete?`콘텐츠별 가산점 합계 ${signed(s.bonus)}점${!s.bonusComplete?' / 미확인 항목 있음':''}`:'콘텐츠 목록 확인 후 가산점 계산'));
-   for(const note of s.notes)why.append(node('p',note,'score-note'));if(facts.status==='rejected')why.append(node('p','리뷰 점수 근거를 불러오지 못했습니다. 새로고침해 주세요.','score-note'));
+   for(const note of s.notes)why.append(node('p',note,'score-note'));if(facts[0].status==='rejected')why.append(node('p','리뷰 점수 근거를 불러오지 못했습니다. 새로고침해 주세요.','score-note'));
    const contributions=s.posts.filter(p=>p.bonus.points>0).sort((a,b)=>b.bonus.points-a.bonus.points).slice(0,3);
    if(contributions.length){
     why.append(node('h4','가산 기여 콘텐츠 · 상위 3건'));
@@ -70,5 +72,5 @@ export function createScoreWorkspace({api,stores}){
   }
   target.replaceChildren(grid,node('p','조회 시점의 누적 실적입니다. 최종 확정·노션 반영 전 확인 점수예요. 순위는 구성 항목이 모두 확인된 매장끼리 비교합니다.','score-footnote'));target.setAttribute('aria-busy','false');
  }
- return {render,cancel(){sequence++;}};
+ return {render,cancel(){sequence++;cancelMarketingBasisDialog();}};
 }

@@ -1,9 +1,11 @@
-import { createScoreWorkspace } from './score-ui.js?v=5f5f1ae78b16';
-import { apiRequest, isCloud } from './client.js?v=5f5f1ae78b16';
-import { AUTOMATIONS } from './modules.js?v=5f5f1ae78b16';
-import { initReporting, updateReporting, syncReporting, reportActions } from './reporting.js?v=5f5f1ae78b16';
-import { createPLScreen } from './pl/pl-app.js?v=5f5f1ae78b16';
-import { createEvalScreen } from './eval/eval-app.js?v=5f5f1ae78b16';
+import { createScoreWorkspace } from './score-ui.js?v=fa3e9bb63c8f';
+import { apiRequest, isCloud } from './client.js?v=fa3e9bb63c8f';
+import { AUTOMATIONS } from './modules.js?v=fa3e9bb63c8f';
+import { initReporting, updateReporting, syncReporting, reportActions } from './reporting.js?v=fa3e9bb63c8f';
+import { createPLScreen } from './pl/pl-app.js?v=fa3e9bb63c8f';
+import { createEvalScreen } from './eval/eval-app.js?v=fa3e9bb63c8f';
+import {createCollectionRangeForm} from './collect-form.js?v=fa3e9bb63c8f';
+import {regularReports,collectionReportLabel} from './collection-reports.js?v=fa3e9bb63c8f';
 let csrf = '', busy = false, refreshTimer, activeView;
 let readOnly = false, accessPending = false;
 let stores = [], lastPlatform = 'instagram', snapshot = null, refreshVersion = 0;
@@ -18,9 +20,10 @@ const dateLabel = date => new Intl.DateTimeFormat('ko-KR', { timeZone: 'Asia/Seo
 function message(text, error = false) { const box = $('#notice'); box.textContent = text; box.className = error ? 'notice error' : 'notice'; }
 const api = (path, data) => apiRequest(path, data, csrf);
 const plScreen=createPLScreen({root:$('#plContent'),request:(path,options)=>apiRequest(path,undefined,csrf,options)});
-const evalScreen=createEvalScreen({root:$('#evalContent'),request:(path,options)=>apiRequest(path,undefined,csrf,options)});
-const scoreWorkspace=createScoreWorkspace({api,stores:()=>stores});
+const evalScreen=createEvalScreen({root:$('#evalContent'),request:(path,{data,...options}={})=>apiRequest(path,data,csrf,options)});
+const scoreWorkspace=createScoreWorkspace({api,stores:()=>stores,isReadOnly:()=>readOnly,onBasisChange:()=>refresh()});
 const hasActiveJob = () => ['queued', 'running'].includes(snapshot?.job?.status);
+const collectionRangeForm=createCollectionRangeForm({form:$('#collectForm'),month:$('#month'),stores:()=>stores});
 
 function updateRoute() {
   const platform = $('#platform').value;
@@ -49,7 +52,7 @@ function syncView() {
   for (const link of document.querySelectorAll('[data-view-link]')) {
     if (link.dataset.viewLink === (view === 'report' ? 'history' : view)) link.setAttribute('aria-current', 'page'); else link.removeAttribute('aria-current');
   }
-  if (activeView !== view) { activeView = view; window.scrollTo({ top: 0, behavior: 'instant' }); }
+  if (activeView !== view) { if(activeView==='dashboard')scoreWorkspace.cancel();activeView = view; window.scrollTo({ top: 0, behavior: 'instant' }); }
   const title=({eval:'종합평가',dashboard:'마케팅',pl:'손익',history:'지난 보고서',accounts:'계정 설정',trends:'연간 추이',report:'상세 보고서'})[view];
   document.title = `${title} | 매장 업무`;
   document.body.classList.toggle('pl-view-active',view==='pl');
@@ -93,6 +96,7 @@ function lockControls() {
   $('#collectButton').textContent = running ? (snapshot?.job?.status === 'queued' ? '실행 대기 중…' : '수집 중…') : $('#collectStore').value === 'all' ? '전 매장 수집' : '선택 매장 수집';
   $('#collectButton').setAttribute('aria-busy', String(busy || running));
   for (const control of document.querySelectorAll('#collectForm select, #collectForm input')) control.disabled = !snapshot || readOnly || busy || running;
+  collectionRangeForm.sync({disabled:!snapshot||busy||running,readOnly});
 }
 function table(headers, className = '') {
   const node = el('table', undefined, `data-table ${className}`); const head = el('thead'), row = el('tr');
@@ -128,7 +132,7 @@ function renderLatest() {
   const period = $('#month').value; $('#latestPeriod').textContent = `${period.split('-')[0]}년 ${Number(period.split('-')[1])}월 게시물 기준`;
   const target=$('#latestResults');
   if(!validMonth(period)){scoreWorkspace.cancel();target.replaceChildren(el('p','보고 싶은 월을 선택해 주세요.','empty'));return;}
-  const last=[...snapshot.reports].filter(r=>r.month===period).sort((a,b)=>b.createdAt.localeCompare(a.createdAt))[0];
+  const reports=regularReports(snapshot.reports),last=[...reports].filter(r=>r.month===period).sort((a,b)=>b.createdAt.localeCompare(a.createdAt))[0];
   $('#ownerUpdated').textContent=last?`${dateLabel(last.createdAt)} 업데이트`:'';
   void scoreWorkspace.render(snapshot,period,target).then(()=>{if(selectionVersion!==scoreSelectionVersion)return;target.dataset.scoreMonth=period;syncMarketingSelection();}).catch(()=>{if(selectionVersion===scoreSelectionVersion)target.replaceChildren(el('p','점수를 불러오지 못했습니다. 새로고침해 주세요.','empty'));});
 }
@@ -147,7 +151,7 @@ function renderReports() {
     if (!results.length) continue; count++;
     const row = el('details', undefined, 'report'); row.dataset.report = report.id; row.open = openIds.has(report.id);
     const summary = el('summary'); const main = el('span', undefined, 'report-main');
-    main.append(el('span', `${report.month} 수집`, 'report-title'), el('span', [...new Set(results.map(r => r.storeName))].join(', ')), el('span', dateLabel(report.createdAt), 'report-time'));
+    main.append(el('span', collectionReportLabel(report), 'report-title'), el('span', [...new Set(results.map(r => r.storeName))].join(', ')), el('span', dateLabel(report.createdAt), 'report-time'));
     summary.append(main); const body = el('div', undefined, 'report-body'); const grid = table(resultHeaders);
     for (const result of results) grid.querySelector('tbody').append(resultRow(result)); body.append(grid);
     const links = reportActions(report);
@@ -220,7 +224,8 @@ async function refresh() {
     if (status.job) {
       const work = status.job;
       const labels = { queued: 'Mac mini 실행 대기', running: '수집 중…', done: '결과 저장 완료', partial: '결과 저장 완료 · 확인 필요', failed: '수집 실패', cancelled: '대기 요청 취소됨' };
-      job.append(el('p', `${work.month} ${work.store} · ${work.completed ?? 0} / ${work.total ?? 0}개 계정 확인 · ${labels[work.status] || work.status}${work.error ? ` (${work.error})` : ''}`, 'job'));
+      const period=work.range?`${work.range.start}~${work.range.end} · ${work.month} 점수 보충`:work.month;
+      job.append(el('p', `${period} ${work.store} · ${work.completed ?? 0} / ${work.total ?? 0}개 계정 확인 · ${labels[work.status] || work.status}${work.error ? ` (${work.error})` : ''}`, 'job'));
       if (work.status === 'running') {
         const progress = el('progress'); progress.max = work.total || 1; progress.value = work.completed || 0; progress.setAttribute('aria-label', '계정 수집 진행률'); job.append(progress);
         if (work.current) job.append(el('p', `${stores.find(s => s.id === work.current.store)?.name || work.current.store} / ${platformName(work.current.platform)} 수집 중`, 'small'));
@@ -258,8 +263,9 @@ $('#connectForm').addEventListener('submit', async event => {
   finally { busy = false; await refresh(); }
 });
 $('#collectForm').addEventListener('submit', async event => {
-  event.preventDefault(); if (busy || hasActiveJob()) return;
-  const data = Object.fromEntries(new FormData(event.currentTarget)); busy = true; lockControls(); clearTimeout(refreshTimer);
+  event.preventDefault(); if (readOnly || busy || hasActiveJob()) return;
+  let data;try{data=collectionRangeForm.getRequest();}catch{return;}
+  busy = true; lockControls(); clearTimeout(refreshTimer);
   try { const result = await api('/api/collect', data); message(result.message); }
   catch (error) { message(error.message, true); }
   finally { busy = false; await refresh(); }

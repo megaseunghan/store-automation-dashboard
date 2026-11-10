@@ -1,5 +1,6 @@
-import { apiText, exportLink } from './client.js?v=5f5f1ae78b16';
-import { trendPoints, pointChange } from './insights.js?v=5f5f1ae78b16';
+import { apiText, exportLink } from './client.js?v=fa3e9bb63c8f';
+import { trendPoints, pointChange } from './insights.js?v=fa3e9bb63c8f';
+import {regularReports,collectionReportLabel} from './collection-reports.js?v=fa3e9bb63c8f';
 const $ = selector => document.querySelector(selector);
 const node = (tag, text, className) => { const n = document.createElement(tag); if (text !== undefined) n.textContent = text; if (className) n.className = className; return n; };
 const number = value => Number.isFinite(value) ? value.toLocaleString('ko-KR', { maximumFractionDigits: 1 }) : '미수집';
@@ -27,7 +28,7 @@ export function initReporting(config) {
 export function updateReporting(snapshot) {
   state = snapshot;
   if (!$('#trendStore').options.length) for (const store of snapshot.stores) { const option = node('option', store.name); option.value = store.id; $('#trendStore').append(option); }
-  const years = [...new Set([snapshot.previousMonth.slice(0, 4), ...snapshot.reports.map(r => r.month.slice(0, 4))])].sort().reverse();
+  const years = [...new Set([snapshot.previousMonth.slice(0, 4), ...regularReports(snapshot.reports).map(r => r.month.slice(0, 4))])].sort().reverse();
   $('#trendYear').replaceChildren(...years.map(year => { const option = node('option', `${year}년`); option.value = year; return option; }));
   syncReporting();
 }
@@ -125,7 +126,7 @@ function renderTrends() {
   const platform = $('#trendPlatform').value, mode = $('#trendMode').value, metric = $('#trendMetric').value;
   $('#trendMonthLabel').hidden = mode === 'months';
   const target = $('#trendContent'); target.replaceChildren();
-  const points = trendPoints(state.reports, { store, platform, month: $('#trendMonth').value, year: $('#trendYear').value, mode, metric });
+  const points = trendPoints(regularReports(state.reports), { store, platform, month: $('#trendMonth').value, year: $('#trendYear').value, mode, metric });
   const basis = node('details', undefined, 'compact-details'); basis.append(node('summary', '집계 기준'), node('p', '선택한 월에 게시한 콘텐츠의 수집 시점 누적값입니다. 월별 콘텐츠·관측일이 달라 증감률은 계산하지 않습니다. 미수집은 0이 아니며, 팔로워는 수집 시점 값입니다.', 'small'));
   if (!points.length) { target.append(node('p', '이 기간의 수집 기록이 없습니다.', 'empty')); return; }
   const latest = points.at(-1), previous = points.at(-2), change = pointChange(previous, latest, mode);
@@ -156,10 +157,11 @@ async function renderDetail(id) {
     const report = await context.api(`/api/report/${id}`); if (version !== detailVersion) return;
     target.replaceChildren();
     const summary = [...state.reports, ...(state.trash || [])].find(r => r.id === id);
-    const cover = node('div', undefined, 'report-cover'); cover.append(node('span', `${report.month} 실적`, 'small'), node('h3', `${report.month} 매장 마케팅 보고서`), node('p', `${[...new Set(report.results.map(r => r.storeName))].join(' · ')} / ${report.results.length}개 계정`), node('p', `실행 시각 ${new Date(report.createdAt).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })} (한국)`, 'small'));
-    if (report.scope) {
-      cover.append(node('p', `실행 범위 ${report.scope.store === 'all' ? '전 매장' : '선택 매장'} · 대상 ${report.scope.expectedAccounts}개 / 연결 ${report.scope.connectedAccounts}개 계정`, 'small'));
-      if (report.scope.skipped.length) cover.append(node('p', `미연결로 건너뜀: ${report.scope.skipped.map(a => `${a.storeName} / ${platformName(a.platform)}`).join(', ')}`, 'analysis-note'));
+    const custom=report.scope==='custom-range',scope=custom?report.collectionScope:report.scope;
+    const cover = node('div', undefined, 'report-cover'); cover.append(node('span', custom?'기간 직접 지정 · 별도 보고서':`${report.month} 실적`, 'small'), node('h3', custom?collectionReportLabel(report):`${report.month} 매장 마케팅 보고서`), node('p', `${[...new Set(report.results.map(r => r.storeName))].join(' · ')} / ${report.results.length}개 계정`), node('p', `실행 시각 ${new Date(report.createdAt).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })} (한국)`, 'small'));
+    if (scope) {
+      cover.append(node('p', `실행 범위 ${scope.store === 'all' ? '전 매장' : '선택 매장'} · 대상 ${scope.expectedAccounts}개 / 연결 ${scope.connectedAccounts}개 계정`, 'small'));
+      if (scope.skipped.length) cover.append(node('p', `미연결로 건너뜀: ${scope.skipped.map(a => `${a.storeName} / ${platformName(a.platform)}`).join(', ')}`, 'analysis-note'));
     }
     if (summary?.deletedAt) cover.append(node('p', `휴지통에 있는 기록 · ${date(summary.deletedAt)} 이동. 활성 목록과 추이에서 제외되어 있습니다.`, 'analysis-note'));
     target.append(cover);
@@ -169,7 +171,7 @@ async function renderDetail(id) {
       try { await navigator.clipboard.writeText(await apiText(`/api/report/${id}/markdown`)); context.message('텍스트 보고서를 복사했습니다.'); }
       catch { context.message('복사하지 못했습니다. 텍스트 보고서를 열어 직접 복사해 주세요.', true); }
     }); toolbar.append(copy); if (summary) toolbar.append(reportActions(summary, { showOpen: false })); target.append(toolbar);
-    const basis = node('details', undefined, 'compact-details'); basis.append(node('summary', '집계 기준'), node('p', '해당 월에 게시한 콘텐츠의 수집 시점 누적 실적입니다. 미수집은 0이 아니며, 점수는 승인 전입니다.', 'small')); target.append(basis);
+    const basis = node('details', undefined, 'compact-details'); basis.append(node('summary', '집계 기준'), node('p', custom?'지정 기간 게시 콘텐츠의 수집 시점 누적 실적. 정규 월 보고서와 별도이며 점수에 자동 합산하지 않습니다.':'해당 월에 게시한 콘텐츠의 수집 시점 누적 실적입니다. 미수집은 0이 아니며, 점수는 승인 전입니다.', 'small')); target.append(basis);
     for (const result of report.results) {
       const section = node('section', undefined, 'report-account');
       section.append(node('h3', `${result.storeName} / ${platformName(result.platform)}`), node('p', `@${result.username || '계정명 미기록'} · ${date(result.collectedAt || report.createdAt)} 관측 · ${result.status === 'failed' ? '수집 실패' : result.status === 'partial' ? '일부 수집' : '수집 완료'} · 목록 ${result.listComplete ? '확인 완료' : '완전성 미확인'}`, 'small'));
