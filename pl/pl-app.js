@@ -1,6 +1,6 @@
-import {adaptPLResponse} from './pl-adapter.js?v=09d25dc14013';
-import {createPLCalculations} from './pl-calc.js?v=09d25dc14013';
-import {createPLRenderer} from './pl-render.js?v=09d25dc14013';
+import {adaptPLResponse} from './pl-adapter.js?v=c96d61931b48';
+import {createPLCalculations} from './pl-calc.js?v=c96d61931b48';
+import {createPLRenderer} from './pl-render.js?v=c96d61931b48';
 
 // One read per session/entry; retries are explicit. No Notion calls originate here.
 export function createPLScreen({root,request,now=()=>new Date()}) {
