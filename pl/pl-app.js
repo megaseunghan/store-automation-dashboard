@@ -1,6 +1,6 @@
-import {adaptPLResponse} from './pl-adapter.js?v=fa3e9bb63c8f';
-import {createPLCalculations} from './pl-calc.js?v=fa3e9bb63c8f';
-import {createPLRenderer} from './pl-render.js?v=fa3e9bb63c8f';
+import {adaptPLResponse} from './pl-adapter.js?v=09d25dc14013';
+import {createPLCalculations} from './pl-calc.js?v=09d25dc14013';
+import {createPLRenderer} from './pl-render.js?v=09d25dc14013';
 
 // One read per session/entry; retries are explicit. No Notion calls originate here.
 export function createPLScreen({root,request,now=()=>new Date()}) {
@@ -96,7 +96,7 @@ export function createPLScreen({root,request,now=()=>new Date()}) {
     const host=document.createElement('div');host.className='pl-shell pl-picker-host';host.dataset.plTheme=state.theme;
     dialog=document.createElement('dialog');dialog.id='pl-store-picker';dialog.className='pl-store-picker';dialog.setAttribute('aria-labelledby','pl-picker-title');
     const {plEsc:esc,plMoney:money}=renderer,months=calc.periodMonths(state.unit,state.period);
-    dialog.innerHTML=`<h2 id="pl-picker-title">매장 선택</h2><div class="pl-picker-bulk"><button type="button" data-pl-action="stores-all">전체 선택</button><button type="button" data-pl-action="stores-none">전체 해제</button></div><fieldset><legend>합산할 매장</legend><div class="pl-picker-list">${model.stores.map(s=>`<label><input type="checkbox" data-pl-draft-store="${esc(s.id)}"><span>${esc(s.name)}</span><small>${money(calc.aggregatePL(months,s.id).calc?.netProfit)}</small></label>`).join('')}</div></fieldset><div class="pl-picker-hq"><span id="pl-hq-label">본부 포함</span><strong>${money(calc.aggregatePL(months,model.hq.id).calc?.netProfit)}</strong><button type="button" role="switch" class="pl-hq-switch" data-pl-action="hq-toggle" aria-labelledby="pl-hq-label" aria-describedby="pl-hq-hint" aria-checked="false"><span aria-hidden="true"></span></button><p id="pl-hq-hint">본부 순수익을 더해 최종 순수익을 봅니다</p></div><div class="pl-picker-footer"><p class="pl-picker-selection-note" aria-live="polite"></p><div><button type="button" data-pl-action="stores-cancel">취소</button><button type="button" class="btn-tonal" data-pl-action="stores-apply">적용</button></div></div>`;
+    dialog.innerHTML=`<h2 id="pl-picker-title">매장 선택</h2><div class="pl-picker-bulk"><button type="button" data-pl-action="stores-all">전체 선택</button><button type="button" data-pl-action="stores-none">전체 해제</button></div><fieldset><legend>합산할 매장</legend><div class="pl-picker-list">${model.stores.map(s=>`<label><input type="checkbox" data-pl-draft-store="${esc(s.id)}"><span>${esc(s.name)}</span><small>${renderer.dataMoney(calc.aggregatePL(months,s.id).calc?.netProfit,calc.aggregatePL(months,s.id))}</small></label>`).join('')}</div></fieldset><div class="pl-picker-hq"><span id="pl-hq-label">본부 포함</span><strong>${renderer.dataMoney(calc.aggregatePL(months,model.hq.id).calc?.netProfit,calc.aggregatePL(months,model.hq.id))}</strong><button type="button" role="switch" class="pl-hq-switch" data-pl-action="hq-toggle" aria-labelledby="pl-hq-label" aria-describedby="pl-hq-hint" aria-checked="false"><span aria-hidden="true"></span></button><p id="pl-hq-hint">본부 순수익을 더해 최종 순수익을 봅니다</p></div><div class="pl-picker-footer"><p class="pl-picker-selection-note" aria-live="polite"></p><div><button type="button" data-pl-action="stores-cancel">취소</button><button type="button" class="btn-tonal" data-pl-action="stores-apply">적용</button></div></div>`;
     host.append(dialog);root.append(host);updateDraft();
     dialog.addEventListener('cancel',event=>{event.preventDefault();closePicker();host.remove();});
     dialog.addEventListener('close',()=>host.remove(),{once:true});dialog.showModal();opener.setAttribute('aria-expanded','true');dialog.querySelector('input')?.focus();

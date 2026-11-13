@@ -329,3 +329,17 @@
 .pl-store-unselected { opacity:1; }
 .pl-shell .pl-chart-month-button,.pl-shell .pl-store-table th button { color:var(--text); }
 .pl-shell [data-tone="none"] { color:var(--text); }
+
+/* Keep refresh copy in deliberate phrase/time groups on narrow screens. */
+.pl-source-label { display:flex; flex-wrap:wrap; min-width:0; column-gap:4px; row-gap:2px; }
+.pl-source-label > span { white-space:nowrap; }
+.pl-empty-pending { margin:0; padding:12px 16px; color:var(--text-2); }
+@media (max-width:430px) {
+ .pl-status-line { align-items:flex-start; }
+ .pl-source-label { flex:1; flex-direction:column; }
+ .pl-source-separator { display:none; }
+ .pl-row-money, .pl-store-sales, .pl-store-net { overflow-wrap:anywhere; }
+}
+.pl-pending-coverage { color:var(--text-2); }
+.pl-shell .pl-row-money.pl-muted,
+.pl-shell .pl-store-table .pl-muted { color:var(--text-2); }
