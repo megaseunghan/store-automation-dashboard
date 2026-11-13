@@ -28,15 +28,29 @@ function plCoverage(data) {
  const invalid=new Set((data?.missingCells||[]).filter(c=>!(data.pendingCells||[]).some(p=>p.month===c.month&&p.store===c.store)).map(c=>c.store)).size;
  return [pending?`${pending}곳 계산 전`:'',invalid?`${invalid}곳 확인 필요`:''].filter(Boolean).join(' · ')+(pending||invalid?' · 합계에서 제외':'');
 }
-function sourceLabel(data) {
- const rows=data.rows||[], times=rows.map(r=>r.computedAt).filter(Boolean).sort();
- const time=data.computedAt||times[0]||null;
- const d=new Date(time), valid=Boolean(time)&&Number.isFinite(d.getTime());
+function formatPLTimestamp(time) {
+ const d=new Date(time),valid=Boolean(time)&&Number.isFinite(d.getTime());
  const parts=valid?new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Seoul',month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).formatToParts(d):[];
  const part=type=>parts.find(p=>p.type===type)?.value;
- const formatted=valid?`${part('month')}/${part('day')} ${part('hour')}:${part('minute')}`:'';
+ return valid?`${part('month')}/${part('day')} ${part('hour')}:${part('minute')}`:'';
+}
+function sourceLabel(data) {
+ const rows=data.rows||[], times=rows.map(r=>r.computedAt).filter(Boolean).sort();
+ const formatted=formatPLTimestamp(data.computedAt||times[0]||null);
  return rows.some(r=>r.source==='live')?`노션 실시간${formatted?' · '+formatted+' 기준':''}`:`매일 새벽 4시 갱신${formatted?' · 마지막 갱신 '+formatted:''}`;
 }
+function degradedNotice() {
+ if(!model.degraded?.length)return '';
+ const fallback=model.degraded.find(item=>item.fallback==='snapshot');
+ let message='당월 실시간 조회가 지연되어 일부 달은 표시하지 않았습니다.';
+ if(fallback){
+  const times=[...model.rows,...model.integrated].filter(row=>row.month===fallback.month&&row.source==='snapshot').map(row=>row.computedAt).filter(Boolean).sort();
+  const formatted=formatPLTimestamp(times[0]);
+  message=`당월 실시간 조회가 지연되어 마지막 야간 갱신${formatted?'('+formatted+')':''} 값을 표시합니다.${fallback.stale?' 갱신이 오래되었습니다.':''}`;
+ }
+ return `<p class="pl-note" role="status">${plEsc(message)} <button type="button" class="btn btn-text" data-pl-action="retry">다시 시도</button></p>`;
+}
+
 function integratedNote(state) {
  const integrated=Array.isArray(model.integrated)?model.integrated.find(r=>r.month===state.anchorMonth):model.integrated;
  const entry=integrated?.[state.anchorMonth]||integrated;
@@ -48,7 +62,7 @@ function renderPLHeader(state,data) {
  if(state.unit==='quarter')periods=[...new Set(PL_MONTHS.map(m=>`${m.slice(0,4)}-Q${Math.ceil(Number(m.slice(-2))/3)}`))];
  if(state.unit==='half')periods=[...new Set(PL_MONTHS.map(m=>`${m.slice(0,4)}-H${Number(m.slice(-2))<=6?1:2}`))];
  const open=data.status==='open';
- return `<div class="pl-controls"><div class="seg" role="group" aria-label="기간 단위">${[['month','월'],['quarter','분기'],['half','반기'],['ytd','연간 누적']].map(([key,label])=>`<button type="button" data-pl-unit="${key}" aria-pressed="${state.unit===key}">${label}</button>`).join('')}</div><div class="pl-selects"><label><span class="pl-sr-only">기간</span><select data-pl-select="period" aria-label="기간">${periods.map(p=>`<option value="${p}" ${p===state.period?'selected':''}>${plPeriodLabel(state.unit,p)}</option>`).join('')}</select></label><button type="button" class="pl-store-select-button" data-pl-action="stores" aria-haspopup="dialog" aria-expanded="false" aria-controls="pl-store-picker">${plEsc(plStoreButtonLabel(state.store,plIncludesHQ(state)))}</button></div></div><div class="pl-status-line"><span class="status" data-s="${open?'pend':data.complete?'ok':'none'}">${open?'집계 중':data.complete?'마감 완료':availabilityLabel(data)}</span><span class="pl-source-label">${sourceLabel(data).split(' · ').map(part=>`<span>${plEsc(part)}</span>`).join('<span class="pl-source-separator" aria-hidden="true"> · </span>')}</span>${model.degraded?.length?'<p class="pl-note" role="status">당월 실시간 조회가 지연되어 일부 달은 표시하지 않았습니다. <button type="button" class="btn btn-text" data-pl-action="retry">다시 시도</button></p>':''}${plCoverage(data)?`<p class="pl-coverage ${data.pendingStoreCount?'pl-pending-coverage':''}">${plEsc(plCoverage(data))}</p>`:''}</div>`;
+ return `<div class="pl-controls"><div class="seg" role="group" aria-label="기간 단위">${[['month','월'],['quarter','분기'],['half','반기'],['ytd','연간 누적']].map(([key,label])=>`<button type="button" data-pl-unit="${key}" aria-pressed="${state.unit===key}">${label}</button>`).join('')}</div><div class="pl-selects"><label><span class="pl-sr-only">기간</span><select data-pl-select="period" aria-label="기간">${periods.map(p=>`<option value="${p}" ${p===state.period?'selected':''}>${plPeriodLabel(state.unit,p)}</option>`).join('')}</select></label><button type="button" class="pl-store-select-button" data-pl-action="stores" aria-haspopup="dialog" aria-expanded="false" aria-controls="pl-store-picker">${plEsc(plStoreButtonLabel(state.store,plIncludesHQ(state)))}</button></div></div><div class="pl-status-line"><span class="status" data-s="${open?'pend':data.complete?'ok':'none'}">${open?'집계 중':data.complete?'마감 완료':availabilityLabel(data)}</span><span class="pl-source-label">${sourceLabel(data).split(' · ').map(part=>`<span>${plEsc(part)}</span>`).join('<span class="pl-source-separator" aria-hidden="true"> · </span>')}</span>${degradedNotice()}${plCoverage(data)?`<p class="pl-coverage ${data.pendingStoreCount?'pl-pending-coverage':''}">${plEsc(plCoverage(data))}</p>`:''}</div>`;
 }
 function renderPLComparison(value,prior,key,status='closed') {
   if(status==='open')return '<span class="pl-muted">마감 후 비교</span>';

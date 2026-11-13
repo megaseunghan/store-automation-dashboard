@@ -1,4 +1,4 @@
-import {marketingBasisText} from './marketing-basis.js?v=84789b8307bf';
+import {marketingBasisText} from './marketing-basis.js?v=4cd862e7b03c';
 const node=(tag,text,cls)=>{const n=document.createElement(tag);if(text!==undefined)n.textContent=text;if(cls)n.className=cls;return n;};
 const stamp=value=>{const d=new Date(value);return Number.isFinite(d.getTime())?new Intl.DateTimeFormat('ko-KR',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false}).format(d)+' KST':'수집 시각 확인 필요';};
 const short=ref=>`${stamp(ref.collectedAt)} · ${ref.reportId.slice(0,8)}`;
