@@ -1,5 +1,5 @@
-import {PL_INTEGRATED_FROM} from './pl-eligibility.js?v=c96d61931b48';
-import {freezePL} from './pl-adapter.js?v=c96d61931b48';
+import {PL_INTEGRATED_FROM} from './pl-eligibility.js?v=84789b8307bf';
+import {freezePL} from './pl-adapter.js?v=84789b8307bf';
 export const PL_AMOUNT_KEYS=Object.freeze(['sales','cogs','staff','part','labor','expense','cardFee','vat','incomeTax','grossProfit','opProfit','netProfit']);
 const finite=value=>typeof value==='number'&&Number.isFinite(value);
 const round2=value=>Math.round((value+Number.EPSILON)*100)/100;

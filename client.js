@@ -1,4 +1,4 @@
-import { RUNTIME } from './runtime-config.js?v=c96d61931b48';
+import { RUNTIME } from './runtime-config.js?v=84789b8307bf';
 export function createTransport(config, { fetcher = fetch, storage = null } = {}) {
   const cloud = config.mode === 'cloud';
   let memorySession = null, sessionVersion = 0;

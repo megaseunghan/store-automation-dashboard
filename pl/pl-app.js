@@ -1,6 +1,6 @@
-import {adaptPLResponse} from './pl-adapter.js?v=c96d61931b48';
-import {createPLCalculations} from './pl-calc.js?v=c96d61931b48';
-import {createPLRenderer} from './pl-render.js?v=c96d61931b48';
+import {adaptPLResponse} from './pl-adapter.js?v=84789b8307bf';
+import {createPLCalculations} from './pl-calc.js?v=84789b8307bf';
+import {createPLRenderer} from './pl-render.js?v=84789b8307bf';
 
 // One read per session/entry; retries are explicit. No Notion calls originate here.
 export function createPLScreen({root,request,now=()=>new Date()}) {
@@ -67,14 +67,22 @@ export function createPLScreen({root,request,now=()=>new Date()}) {
     pending?.abort();const controller=new AbortController();pending=controller;
     const token=++generation, requestedRole=role, to=currentMonth(),from=shift(to,-12);
     phase='loading';closePicker({focus:false});attempted=true;displayConnection('노션에서 손익을 불러오고 있습니다');
+    let drawing=false;
     try {
       const response=await request(`/api/pl?from=${from}&to=${to}`,{signal:controller.signal,timeoutMs:120000});
       if(destroyed||token!==generation||role!==requestedRole||controller.signal.aborted)return;
+      drawing=true;
       model=adaptPLResponse(response,{role:requestedRole,now:clock()});calc=createPLCalculations(model);renderer=createPLRenderer(model,calc);
       state=state?{...state,...fromURL()}:initialState();phase='ready';paint();
     } catch(error) {
       if(destroyed||token!==generation||controller.signal.aborted)return;
-      const message=error?.status===503?'노션 연결 설정을 확인해 주세요.':'손익을 불러오지 못했습니다. 다시 시도해 주세요.';
+      const message=drawing?'화면을 그리지 못했습니다. 다시 시도해 주세요.':
+        error?.status===401?'로그인이 필요합니다. 다시 로그인해 주세요.':
+        error?.status===503?'노션 연결 설정을 확인해 주세요.':
+        error?.name==='TimeoutError'||error?.status===504?'조회 시간이 초과되었습니다. 다시 시도해 주세요.':
+        error?.status===502?'손익 조회가 일시적으로 지연되고 있습니다. 다시 시도해 주세요.':
+        !error?.status&&['TypeError','AbortError'].includes(error?.name)?'네트워크 연결을 확인한 뒤 다시 시도해 주세요.':
+        '조회 요청을 처리하지 못했습니다. 다시 시도해 주세요.';
       phase='error';displayConnection(message,true);
     } finally {if(token===generation)pending=null;}
   }

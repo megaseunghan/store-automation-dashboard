@@ -30,5 +30,6 @@ export function adaptPLResponse(response,{role='viewer',now=new Date()}={}) {
     source:item.source??null,computedAt:item.computedAt??null,
     ...(item.message||!['ok','notion-truncated'].includes(item.state)?{message:admin?String(item.message||'통합 자료 확인 필요'):'일부 매장 자료 확인 중'}:{})}));
   return freezePL({stores:stores.filter(s=>s.id!=='hq'),hq:stores.find(s=>s.id==='hq')??null,months,rows,integrated,currentMonth,
+    degraded:(Array.isArray(response?.degraded)?response.degraded:[]).filter(item=>months.includes(item?.month)&&['budget','source'].includes(item?.reason)).map(({month,reason})=>({month,reason})),
     role:admin?'admin':'viewer',fetchedAt:typeof response?.fetchedAt==='string'?response.fetchedAt:null});
 }
