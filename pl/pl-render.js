@@ -1,3 +1,4 @@
+import {INTEGRATED_FROM} from './pl-eligibility.js?v=51bb9130f78e';
 export function createPLRenderer(model, calculations) {
 const PL_STORES=model.stores, PL_MONTHS=model.months;
 const {periodMonths,aggregatePL,previousMean,comparePL}=calculations;
@@ -52,6 +53,7 @@ function degradedNotice() {
 }
 
 function integratedNote(state) {
+ if(state.anchorMonth<INTEGRATED_FROM)return '<p class="pl-note pl-integrated-note">통합표 해당 없음 · 통합 시작 전</p>';
  const integrated=Array.isArray(model.integrated)?model.integrated.find(r=>r.month===state.anchorMonth):model.integrated;
  const entry=integrated?.[state.anchorMonth]||integrated;
  const count=(entry?.includedStores||[]).filter(id=>(typeof id==='string'?id:id?.id)!==model.hq.id).length;
