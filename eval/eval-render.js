@@ -1,4 +1,4 @@
-import {projectMarketingBasis,marketingBasisText} from '../marketing-basis.js?v=51bb9130f78e';
+import {projectMarketingBasis,marketingBasisText} from '../marketing-basis.js?v=ebca826d0f60';
 const SCORE_KEYS=['sales','cost','labor','ops','mkt','hit','rnd','ceo'];
 const RATIO_KEYS=['sales','cost','labor','hit'];
 const STORES=new Set(['haenggung','sindong','paldal','simgeum','sasek','yamiok']);

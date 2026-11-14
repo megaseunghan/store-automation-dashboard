@@ -1,11 +1,12 @@
-import { createScoreWorkspace } from './score-ui.js?v=51bb9130f78e';
-import { apiRequest, isCloud } from './client.js?v=51bb9130f78e';
-import { AUTOMATIONS } from './modules.js?v=51bb9130f78e';
-import { initReporting, updateReporting, syncReporting, reportActions } from './reporting.js?v=51bb9130f78e';
-import { createPLScreen } from './pl/pl-app.js?v=51bb9130f78e';
-import { createEvalScreen } from './eval/eval-app.js?v=51bb9130f78e';
-import {createCollectionRangeForm} from './collect-form.js?v=51bb9130f78e';
-import {regularReports,collectionReportLabel} from './collection-reports.js?v=51bb9130f78e';
+import { createScoreWorkspace } from './score-ui.js?v=ebca826d0f60';
+import { apiRequest, isCloud } from './client.js?v=ebca826d0f60';
+import { AUTOMATIONS } from './modules.js?v=ebca826d0f60';
+import { initReporting, updateReporting, syncReporting, reportActions } from './reporting.js?v=ebca826d0f60';
+import { createPLScreen } from './pl/pl-app.js?v=ebca826d0f60';
+import { createEvalScreen } from './eval/eval-app.js?v=ebca826d0f60';
+import { createHomeScreen } from './home/home-app.js?v=ebca826d0f60';
+import {createCollectionRangeForm} from './collect-form.js?v=ebca826d0f60';
+import {regularReports,collectionReportLabel} from './collection-reports.js?v=ebca826d0f60';
 let csrf = '', busy = false, refreshTimer, activeView;
 let readOnly = false, accessPending = false;
 let stores = [], lastPlatform = 'instagram', snapshot = null, refreshVersion = 0;
@@ -21,6 +22,7 @@ function message(text, error = false) { const box = $('#notice'); box.textConten
 const api = (path, data) => apiRequest(path, data, csrf);
 const plScreen=createPLScreen({root:$('#plContent'),request:(path,options)=>apiRequest(path,undefined,csrf,options)});
 const evalScreen=createEvalScreen({root:$('#evalContent'),request:(path,{data,...options}={})=>apiRequest(path,data,csrf,options)});
+const homeScreen=createHomeScreen({root:$('#homeContent'),request:(path,options)=>apiRequest(path,undefined,csrf,options)});
 const scoreWorkspace=createScoreWorkspace({api,stores:()=>stores,isReadOnly:()=>readOnly,onBasisChange:()=>refresh()});
 const hasActiveJob = () => ['queued', 'running'].includes(snapshot?.job?.status);
 const collectionRangeForm=createCollectionRangeForm({form:$('#collectForm'),month:$('#month'),stores:()=>stores});
@@ -47,16 +49,17 @@ function writeUrl(values, replace = false) {
 }
 function syncView() {
   const requested = new URL(location.href).searchParams.get('view');
-  const view = readOnly&&requested==='accounts'?'dashboard':['eval','dashboard', 'pl', 'history', 'accounts', 'trends', 'report'].includes(requested)?requested:'eval';
+  const view = readOnly&&requested==='accounts'?'dashboard':['home','eval','dashboard', 'pl', 'history', 'accounts', 'trends', 'report'].includes(requested)?requested:'home';
   for (const panel of document.querySelectorAll('[data-view]')) panel.hidden = panel.dataset.view !== view;
   for (const link of document.querySelectorAll('[data-view-link]')) {
     if (link.dataset.viewLink === (view === 'report' ? 'history' : view)) link.setAttribute('aria-current', 'page'); else link.removeAttribute('aria-current');
   }
-  if (activeView !== view) { if(activeView==='dashboard')scoreWorkspace.cancel();activeView = view; window.scrollTo({ top: 0, behavior: 'instant' }); }
-  const title=({eval:'종합평가',dashboard:'마케팅',pl:'손익',history:'지난 보고서',accounts:'계정 설정',trends:'연간 추이',report:'상세 보고서'})[view];
+  if (activeView !== view) { if(activeView==='dashboard')scoreWorkspace.cancel();if(activeView==='home')homeScreen.deactivate();activeView = view; window.scrollTo({ top: 0, behavior: 'instant' }); }
+  const title=({home:'본부 현황',eval:'종합평가',dashboard:'마케팅',pl:'손익',history:'지난 보고서',accounts:'계정 설정',trends:'연간 추이',report:'상세 보고서'})[view];
   document.title = `${title} | 매장 업무`;
   document.body.classList.toggle('pl-view-active',view==='pl');
   document.querySelector('.page-heading h1').textContent=title;
+  if(view==='home'&&snapshot&&!accessPending){void homeScreen.activate({role:readOnly?'viewer':'admin'});homeScreen.syncURL();}
   if(view==='pl'&&snapshot&&!accessPending){void plScreen.activate({role:readOnly?'viewer':'admin'});plScreen.syncURL();}
   if(view==='eval'&&snapshot&&!accessPending){void evalScreen.activate({role:readOnly?'viewer':'admin'});evalScreen.syncURL();}
   if(view==='dashboard')syncMarketingSelection();
@@ -196,7 +199,7 @@ async function refresh() {
   clearTimeout(refreshTimer); $('#refreshButton').disabled = true; $('#refreshButton').setAttribute('aria-busy', 'true');
   try {
     const status = await api('/api/status'); if (requestVersion !== refreshVersion) return;
-    if(snapshot&&snapshot.role!==status.role){plScreen.resetSession();evalScreen.resetSession();}
+    if(snapshot&&snapshot.role!==status.role){plScreen.resetSession();evalScreen.resetSession();homeScreen.resetSession();}
     csrf = status.csrf; stores = status.stores; snapshot = status; readOnly = status.role === 'viewer';
     $('#serverEnvironment').textContent = `${status.serverLabel || '이 컴퓨터에서 실행 중'}${readOnly ? ' · 조회 전용' : ''}`;
     document.querySelector('.view-nav [data-view-link="accounts"]').hidden = true;
@@ -248,7 +251,7 @@ async function refresh() {
     lockControls(); if (['queued', 'running'].includes(status.job?.status)) refreshTimer = setTimeout(refresh, 3000);
   } catch (error) {
     if (requestVersion !== refreshVersion) return;
-    if(error.status===401){plScreen.resetSession();evalScreen.resetSession();}
+    if(error.status===401){plScreen.resetSession();evalScreen.resetSession();homeScreen.resetSession();}
     message(`${error.message} 화면 상단의 새로고침으로 다시 시도해 주세요.`, true);
     for (const id of ['accounts', 'latestResults', 'reports', 'trendContent', 'reportDetail']) { $('#' + id).setAttribute('aria-busy', 'false'); if (!snapshot) $('#' + id).replaceChildren(el('p', '데이터를 불러오지 못했습니다. 새로고침으로 다시 시도해 주세요.', 'empty')); }
     if (!snapshot) for (const id of ['connectedCount', 'overviewConnections', 'lastCollected']) $('#' + id).textContent = '확인 불가';
@@ -271,7 +274,7 @@ $('#collectForm').addEventListener('submit', async event => {
   finally { busy = false; await refresh(); }
 });
 $('#platform').addEventListener('change', updateRoute); $('#route').addEventListener('change', updateRoute); $('#connectionStore').addEventListener('change', updateRoute);
-$('#refreshButton').addEventListener('click', async () => { message(''); if(activeView==='pl'&&snapshot)await plScreen.refresh();else if(activeView==='eval'&&snapshot)await evalScreen.refresh();else await refresh(); });
+$('#refreshButton').addEventListener('click', async () => { message(''); if(activeView==='pl'&&snapshot)await plScreen.refresh();else if(activeView==='eval'&&snapshot)await evalScreen.refresh();else if(activeView==='home'&&snapshot)await homeScreen.refresh();else await refresh(); });
 $('#collectStore').addEventListener('change', lockControls);
 $('#month').addEventListener('change', () => { writeUrl({ month: $('#month').value }); renderLatest(); });
 for (const id of ['historyStore', 'historyPlatform', 'historyMonth']) $('#' + id).addEventListener('change', () => { writeUrl({ [id]: $('#' + id).value }); renderReports(); });
@@ -282,6 +285,9 @@ $('#recordState').addEventListener('change', () => { writeUrl({ recordState: $('
 document.addEventListener('click', event => {
   const link=event.target.closest('[data-view-link]');if(!link||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey||event.button!==0)return;
   event.preventDefault();const destination=new URL(link.href,location.href),values={view:link.dataset.viewLink};
+  if(['home','eval','pl','dashboard'].includes(values.view)){
+    const month=destination.searchParams.get('month');if(validMonth(month))values.month=month;
+  }
   if(values.view==='dashboard'){
     const selected=destination.searchParams.get('marketingStore');if(selected&&Object.hasOwn(marketingStoreAliases,selected))values.marketingStore=selected;
     const month=destination.searchParams.get('month');if(validMonth(month))values.month=month;
@@ -308,6 +314,7 @@ async function consumeAccessLink() {
   accessPending=true;refreshVersion++;clearTimeout(refreshTimer);snapshot=null;csrf='';
   plScreen.resetSession();
   evalScreen.resetSession();
+  homeScreen.resetSession();
   history.replaceState(null, '', location.pathname + location.search);
   try {
     const session = await api('/api/session', { key: accessKey });
