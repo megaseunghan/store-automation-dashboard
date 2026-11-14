@@ -1,6 +1,6 @@
-import {adaptEvaluationResponse} from '../eval/eval-render.js?v=54833f2411d6';
-import {adaptDueTasks} from './home-tasks.js?v=54833f2411d6';
-import {renderHome} from './home-render.js?v=54833f2411d6';
+import {adaptEvaluationResponse} from '../eval/eval-render.js?v=b913fd0ca714';
+import {adaptDueTasks} from './home-tasks.js?v=b913fd0ca714';
+import {renderHome} from './home-render.js?v=b913fd0ca714';
 export const HOME_STORES=[['haenggung','테네스 행궁'],['sindong','테네스 신동'],['paldal','팔달통닭바베큐'],['simgeum','심금'],['sasek','사색'],['yamiok','야미옥']].map(([id,name])=>({id,name}));
 export function createHomeScreen({root,request,now=()=>new Date()}){
  let role=null,active=false,batch=null,month=null,loaded=false,version=0;
