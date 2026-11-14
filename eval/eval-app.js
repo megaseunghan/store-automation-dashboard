@@ -1,4 +1,4 @@
-import {adaptEvaluationResponse,renderEvaluation,renderEvaluationDetail,renderEvaluationControls,renderEvaluationConfirmationDialog} from './eval-render.js?v=ebca826d0f60';
+import {adaptEvaluationResponse,renderEvaluation,renderEvaluationDetail,renderEvaluationControls,renderEvaluationConfirmationDialog} from './eval-render.js?v=54833f2411d6';
 
 const EVALUATION_STORES=[['haenggung','테네스 행궁'],['sindong','테네스 신동'],['paldal','팔달통닭바베큐'],['simgeum','심금'],['sasek','사색'],['yamiok','야미옥']].map(([id,name])=>({id,name}));
 
