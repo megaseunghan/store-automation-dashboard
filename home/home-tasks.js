@@ -17,13 +17,21 @@ export function renderDueTasks(role,state={status:'loading'}){
  const source='<div class="home-due-source"><h3>Due Database</h3><a href="https://app.notion.com/p/708559ecec484f4e83318d81afd7deff" target="_blank" rel="noreferrer">전체 업무 ↗</a></div><p class="home-due-note">현재 예정일 기준 · 선택한 평가 월과 무관합니다. 완료 처리와 날짜 업데이트는 Notion에서 합니다.</p>';
  if(state.status==='error')return `${source}<p role="status">업무를 불러오지 못했습니다. 연결 권한과 상태를 확인한 뒤 다시 시도해 주세요.</p><button type="button" data-home-task-retry>업무 다시 불러오기</button>`;
  if(state.status!=='ready')return `${source}<p role="status">업무를 불러오고 있습니다.</p>`;
+ const selected=['all',...CYCLES.map(([key])=>key)].includes(state.selectedCycle)?state.selectedCycle:'all';
+ const cycleOf=task=>CYCLES.some(([key])=>key===task.cycle)?task.cycle:'';
+ const filters=[['all','전체'],...CYCLES];
+ const tabs=`<div class="home-cycle-tabs" role="group" aria-label="업무 주기 선택">${filters.map(([key,label])=>{
+  const count=state.tasks.filter(t=>key==='all'||cycleOf(t)===key).length;
+  return `<button type="button" data-home-cycle="${esc(key)}" aria-pressed="${selected===key}" aria-controls="home-cycle-results">${label} <span>${count}</span></button>`;
+ }).join('')}</div>`;
+ const filtered=state.tasks.filter(t=>selected==='all'||cycleOf(t)===selected);
  const rank=Object.fromEntries(GROUPS.map(([key],i)=>[key,i]));
  const knownCycles=new Set(CYCLES.map(([key])=>key));
- return source+(state.tasks.length?CYCLES.map(([key,label])=>{
-  const tasks=state.tasks.filter(t=>(knownCycles.has(t.cycle)?t.cycle:'')===key).sort((a,b)=>rank[a.dateState]-rank[b.dateState]||(a.dueDate??'').localeCompare(b.dueDate??''));
+ return source+tabs+'<div id="home-cycle-results">'+(filtered.length?CYCLES.map(([key,label])=>{
+  const tasks=filtered.filter(t=>(knownCycles.has(t.cycle)?t.cycle:'')===key).sort((a,b)=>rank[a.dateState]-rank[b.dateState]||(a.dueDate??'').localeCompare(b.dueDate??''));
   return tasks.length?`<section class="home-due-group" aria-label="${label} 업무"><h4><strong>${label}</strong><span>${tasks.length}건</span></h4><ul>${tasks.map(task=>{
    const [,dateLabel,color]=GROUPS.find(([state])=>state===task.dateState);
    return `<li class="home-due-task"><div class="home-due-title"><strong>${esc(task.title)}</strong><span class="home-chip home-${color}">${dateLabel}</span></div><p>${[task.affiliation,task.status?`Notion 상태 ${task.status}`:''].filter(Boolean).map(esc).join(' · ')}</p><div><span>${task.dueDate?`예정 ${esc(task.dueDate)}`:'예정일 미확인'}</span><a href="${esc(task.url)}" target="_blank" rel="noreferrer" aria-label="${esc(task.title)} · Notion에서 열기">Notion에서 열기 ↗</a></div></li>`;
   }).join('')}</ul></section>`:'';
- }).join(''):'<p>기한이 지났거나 오늘부터 7일 이내 예정된 업무가 없습니다.</p>');
+ }).join(''):'<p>선택한 주기에 표시할 업무가 없습니다.</p>')+'</div>';
 }
