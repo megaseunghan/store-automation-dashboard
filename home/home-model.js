@@ -14,7 +14,7 @@ export function homeStore(row){
   const level=score>=baseline?'consult':score<=RISK[key]?'risk':score<=WARN[key]?'warn':'mild';
   const target=bands.filter(b=>b[2]===baseline),bounds=target.flatMap(([min,max])=>[min,max]).filter(finite);
   const nearest=bounds.reduce((best,n)=>Math.abs(n-value)<Math.abs(best-value)?n:best,bounds[0]);
-  result.issues.push({key,label,value,score,baseline,level,consultation,consulted:row.costAgreement?.completed===true,target,delta:finite(nearest)?Math.round((value-nearest)*100)/100:null});
+  result.issues.push({key,label,value,score,baseline,level,consultation,bands,consulted:row.costAgreement?.completed===true,target,delta:finite(nearest)?Math.round((value-nearest)*100)/100:null});
  }
  result.issues.sort((a,b)=>severityRank[a.level]-severityRank[b.level]);return result;
 }

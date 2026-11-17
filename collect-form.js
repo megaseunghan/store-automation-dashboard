@@ -1,4 +1,4 @@
-import {validateCollectionRange} from './collect-range.js?v=481cc7f8380c';
+import {validateCollectionRange} from './collect-range.js?v=74b489bb035c';
 
 export function createCollectionRangeForm({form,month,stores,now=()=>new Date()}){
  const ids=['collectCustomRange','collectRangeFields','rangeStart','rangeEnd','targetMonth','collectStore'];

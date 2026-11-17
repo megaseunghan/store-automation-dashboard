@@ -1,6 +1,6 @@
-import {marketingScore,SCORE_BANDS,bonusReason} from './scoring.js?v=481cc7f8380c';
-import {resolveMarketingBasis,combineMarketingBasis,newerGrowth} from './marketing-basis.js?v=481cc7f8380c';
-import {appendMarketingBasis,cancelMarketingBasisDialog} from './marketing-basis-ui.js?v=481cc7f8380c';
+import {marketingScore,SCORE_BANDS,bonusReason} from './scoring.js?v=74b489bb035c';
+import {resolveMarketingBasis,combineMarketingBasis,newerGrowth} from './marketing-basis.js?v=74b489bb035c';
+import {appendMarketingBasis,cancelMarketingBasisDialog} from './marketing-basis-ui.js?v=74b489bb035c';
 const node=(tag,text,cls)=>{const n=document.createElement(tag);if(text!==undefined)n.textContent=text;if(cls)n.className=cls;return n;};
 const num=n=>Number.isFinite(n)?n.toLocaleString('ko-KR',{maximumFractionDigits:2}):'미확인';
 const signed=n=>n>0?'+'+n:String(n);
@@ -50,10 +50,10 @@ export function createScoreWorkspace({api,stores,isReadOnly=()=>false,onBasisCha
    const score=node('div',undefined,'score-number');score.append(node('strong',s.total===null?'—':num(s.total)),node('span','점'));card.append(score);
    card.append(node('p',s.total===null?'확인 후 점수를 표시해요.':'기본 30점 + 가산 / 미확인 항목 제외','score-caption'));
    appendMarketingBasis(card,{month,store,resolution,growth,isReadOnly:isReadOnly(),api,onChange:onBasisChange});
-   card.append(node('p','네이버 리뷰 10 + SNS 20 = 기본 30점 · 가산 별도','score-formula'),composition(s));
+   card.append(composition(s));
    const breakdown=node('dl',undefined,'score-breakdown');for(const [label,value] of [['네이버',s.reviewPoints],['SNS',s.sns],['가산점',s.complete?s.bonus:null]]){const item=node('div',undefined,'score-component');item.append(node('dt',label),node('dd',value===null?'확인 중':(label==='가산점'?signed(value):num(value))+'점'));if(label==='가산점'&&s.complete&&!s.bonusComplete)item.append(node('span','추가 확인','score-note'));breakdown.append(item);}card.append(breakdown);
    const details=node('details',undefined,'score-detail');details.open=opened.has(store.id);details.addEventListener('toggle',()=>{if(details.isConnected){if(details.open)opened.add(store.id);else opened.delete(store.id);}});const summary=node('summary');summary.setAttribute('aria-label',store.name+' 점수 근거와 게시물');summary.append(node('span','점수 근거와 게시물'),node('span',s.count===null?'확인 중':s.count+'건','score-count'));details.append(summary);
-   const why=node('div',undefined,'score-reasons');why.append(node('h4','30+α 구성 근거','score-detail-heading'));
+   const why=node('div',undefined,'score-reasons');why.append(node('h4','30+α 구성 근거','score-detail-heading'),node('p','네이버 리뷰 10 + SNS 20 = 기본 30점 · 가산 별도','score-formula'));
    why.append(node('p',s.reviewPoints===null?'네이버 리뷰: 해당 월 자료 확인 필요':`네이버 리뷰 ${s.reviewCount}건 → ${s.reviewCount>=100?'100건 이상':s.reviewCount>=80?'80~99건':s.reviewCount>=60?'60~79건':s.reviewCount>=40?'40~59건':s.reviewCount>=20?'20~39건':s.reviewCount>=10?'10~19건':'0~9건'} 구간 ${s.reviewPoints}점`));why.append(node('p',s.reason));
    const band=SCORE_BANDS.find(b=>b.grade===s.performanceGrade);if(band)why.append(node('p',`성과 ${band.grade} 기준: 평균 조회 ${num(band.views)}회 이상${s.policy==='views-only'?'':` / 저장+공유 ${num(band.actions)}회 이상`}`,'score-note'));
    if(s.count>0){why.append(node('p',`조회 평균 ${num(s.viewAverage)}회`));if(s.policy!=='views-only')why.append(node('p',`저장+공유 평균 ${num(s.actionAverage)}회${s.actionMissing?' 이상 (확인된 수치 기준)':''}`));}

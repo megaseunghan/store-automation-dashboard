@@ -1,6 +1,6 @@
-import {adaptPLResponse} from './pl-adapter.js?v=481cc7f8380c';
-import {createPLCalculations} from './pl-calc.js?v=481cc7f8380c';
-import {createPLRenderer} from './pl-render.js?v=481cc7f8380c';
+import {adaptPLResponse} from './pl-adapter.js?v=74b489bb035c';
+import {createPLCalculations} from './pl-calc.js?v=74b489bb035c';
+import {createPLRenderer} from './pl-render.js?v=74b489bb035c';
 
 // One read per session/entry; retries are explicit. No Notion calls originate here.
 export function createPLScreen({root,request,now=()=>new Date()}) {
@@ -51,21 +51,27 @@ export function createPLScreen({root,request,now=()=>new Date()}) {
   }
   function paint() {
     if(!model||destroyed||phase!=='ready')return;
+    const segments=root.querySelector('.pl-period-segments');
     root.innerHTML=renderer.renderPLApp(root.clientWidth>=1000?'pc':'mobile',state);
     root.querySelectorAll('[data-pl-style]').forEach(element=>{
       element.style.cssText=element.dataset.plStyle;
       element.removeAttribute('data-pl-style');
     });
+    if(segments){
+      root.querySelector('.pl-period-segments')?.replaceWith(segments);
+      segments.style.setProperty('--period-index',['month','quarter','half','ytd'].indexOf(state.unit));
+      segments.querySelectorAll('[data-pl-unit]').forEach(button=>{const selected=button.dataset.plUnit===state.unit;button.setAttribute('aria-checked',String(selected));button.tabIndex=selected?0:-1;});
+    }
     root.dataset.theme=state.theme;
   }
   function setState(patch,{url=true}={}) {
-    const focused=document.activeElement, marker=focused?.closest('[data-pl-expand],[data-pl-select],[data-pl-action],[data-pl-chart],[data-pl-toggle-store],[data-pl-sort],[data-pl-unit]');
+    const focused=document.activeElement, marker=focused?.closest('[data-pl-expand],[data-pl-select],[data-pl-action],[data-pl-chart],[data-pl-toggle-store],[data-pl-sort],[data-pl-unit],[data-pl-cursor]');
     const attrs=marker?[...marker.attributes].filter(a=>a.name.startsWith('data-pl-')):[];
     state={...state,...patch};
     if(Object.hasOwn(patch,'store')){state.store=canonical(patch.store);if(!state.hqExplicit&&!Object.hasOwn(patch,'includeHQ'))state.includeHQ=state.store==='all';}
     theme=state.theme;
     if(url)writeURL();paint();
-    const match=attrs.length?[...root.querySelectorAll('[data-pl-expand],[data-pl-select],[data-pl-action],[data-pl-chart],[data-pl-toggle-store],[data-pl-sort],[data-pl-unit]')].find(el=>attrs.every(a=>el.getAttribute(a.name)===a.value)):null;
+    const match=attrs.length?[...root.querySelectorAll('[data-pl-expand],[data-pl-select],[data-pl-action],[data-pl-chart],[data-pl-toggle-store],[data-pl-sort],[data-pl-unit],[data-pl-cursor]')].find(el=>attrs.every(a=>el.getAttribute(a.name)===a.value)):null;
     match?.focus({preventScroll:true});
   }
   function displayConnection(message,error=false) {
@@ -152,8 +158,37 @@ export function createPLScreen({root,request,now=()=>new Date()}) {
     if(target.dataset.plSelect==='sort')return setState({sort:{...state.sort,key:target.value}});
   }
   function keydown(event) {
+    const unit=event.target.closest('[data-pl-unit]');
+    if(unit&&['ArrowLeft','ArrowRight','Home','End'].includes(event.key)){
+      event.preventDefault();const units=[...root.querySelectorAll('[data-pl-unit]')],index=units.indexOf(unit);
+      const next=event.key==='Home'?0:event.key==='End'?units.length-1:(index+(event.key==='ArrowRight'?1:-1)+units.length)%units.length;
+      units[next].focus();units[next].click();return;
+    }
+    const chart=event.target.closest('[data-pl-cursor]');
+    if(chart&&['ArrowLeft','ArrowRight','Home','End'].includes(event.key)){
+      event.preventDefault();const months=chart.dataset.months.split(','),selected=months.indexOf(state.chartMonth),index=selected<0?months.length-1:selected;
+      const next=event.key==='Home'?0:event.key==='End'?months.length-1:Math.max(0,Math.min(months.length-1,index+(event.key==='ArrowRight'?1:-1)));
+      selectChartMonth(months[next]);return;
+    }
     if(event.target.closest('button,select,input'))return;
     const row=event.target.closest('tr[data-pl-store]');if(row&&['Enter',' '].includes(event.key)){event.preventDefault();setState({store:row.dataset.plStore});}
+  }
+  function selectChartMonth(month,{url=true}={}) {
+    const activeCursor=document.activeElement?.dataset?.plCursor;
+    state={...state,chartMonth:month};if(url)writeURL();
+    const trend=root.querySelector('.pl-trend');
+    if(!trend){paint();return;}
+    trend.outerHTML=renderer.renderPLTrend(state,root.clientWidth>=1000?'pc':'mobile',calc.periodMonths(state.unit,state.period));
+    root.querySelectorAll('[data-pl-style]').forEach(element=>{element.style.cssText=element.dataset.plStyle;element.removeAttribute('data-pl-style');});
+    if(activeCursor)root.querySelector(`[data-pl-cursor="${activeCursor}"]`)?.focus({preventScroll:true});
+  }
+  function pointer(event) {
+    const chart=event.target.closest('[data-pl-cursor]');if(!chart||!state)return;
+    if(event.type==='pointermove'&&event.pointerType==='touch'&&!event.buttons)return;
+    const rect=chart.getBoundingClientRect(),months=chart.dataset.months.split(',');if(!rect.width)return;
+    const index=Math.max(0,Math.min(months.length-1,Math.floor((event.clientX-rect.left)/rect.width*months.length)));
+    if(months[index]!==state.chartMonth)selectChartMonth(months[index],{url:event.type==='pointerdown'});
+    else if(event.type==='pointerdown')writeURL();
   }
   const requestFrame=callback=>globalThis.requestAnimationFrame?globalThis.requestAnimationFrame(callback):setTimeout(callback,0);
   const cancelFrame=id=>globalThis.cancelAnimationFrame?globalThis.cancelAnimationFrame(id):clearTimeout(id);
@@ -164,13 +199,13 @@ export function createPLScreen({root,request,now=()=>new Date()}) {
       resizeFrame=null;if(root.clientWidth>0&&phase==='ready'&&model&&!dialog&&!destroyed)paint();
     });
   }):null;
-  observer?.observe(root);root.addEventListener('click',click);root.addEventListener('change',change);root.addEventListener('keydown',keydown);
+  observer?.observe(root);root.addEventListener('click',click);root.addEventListener('change',change);root.addEventListener('keydown',keydown);root.addEventListener('pointermove',pointer);root.addEventListener('pointerdown',pointer);
   function resetSession(){generation++;pending?.abort();pending=null;if(resizeFrame!==null)cancelFrame(resizeFrame);resizeFrame=null;closePicker({focus:false});model=calc=renderer=state=null;role=null;attempted=false;active=false;phase='idle';root.replaceChildren();delete root.dataset.theme;}
   return {
     activate({role:nextRole}) {if(destroyed)return;if(role&&role!==nextRole)resetSession();role=nextRole;active=true;if(!attempted)return load();if(phase==='ready'&&model){state={...state,...fromURL()};paint();}},
     syncURL(){if(phase==='ready'&&model)setState(fromURL(),{url:false});},
     refresh(){return load();},
     resetSession,
-    destroy(){resetSession();destroyed=true;themeDocument?.removeEventListener?.('app-theme-change',syncApplicationTheme);observer?.disconnect();root.removeEventListener('click',click);root.removeEventListener('change',change);root.removeEventListener('keydown',keydown);}
+    destroy(){resetSession();destroyed=true;themeDocument?.removeEventListener?.('app-theme-change',syncApplicationTheme);observer?.disconnect();root.removeEventListener('click',click);root.removeEventListener('change',change);root.removeEventListener('keydown',keydown);root.removeEventListener('pointermove',pointer);root.removeEventListener('pointerdown',pointer);}
   };
 }

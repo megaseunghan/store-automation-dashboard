@@ -1,16 +1,18 @@
-import {adaptEvaluationResponse} from '../eval/eval-render.js?v=481cc7f8380c';
-import {adaptDueTasks} from './home-tasks.js?v=481cc7f8380c';
-import {renderHome} from './home-render.js?v=481cc7f8380c';
-import {createHomeActions} from './home-actions.js?v=481cc7f8380c';
+import {evaluationRouteParams} from '../eval/eval-app.js?v=74b489bb035c';
+import {adaptEvaluationResponse,renderEvaluationDetail,hydrateEvaluationTargets} from '../eval/eval-render.js?v=74b489bb035c';
+import {adaptDueTasks} from './home-tasks.js?v=74b489bb035c';
+import {renderHome} from './home-render.js?v=74b489bb035c';
+import {createHomeActions} from './home-actions.js?v=74b489bb035c';
 export const HOME_STORES=[['haenggung','테네스 행궁'],['sindong','테네스 신동'],['paldal','팔달통닭바베큐'],['simgeum','심금'],['sasek','사색'],['yamiok','야미옥']].map(([id,name])=>({id,name}));
 export function createHomeScreen({root,request,now=()=>new Date()}){
  const actions=createHomeActions({root,request});
- let role=null,active=false,batch=null,month=null,loaded=false,version=0,selectedCycle='all',selectedDate='all';
+ let detail=null,detailStore=null,detailIssue=null,detailIds=null,detailOpener=null;
+ let role=null,active=false,batch=null,month=null,loaded=false,version=0,selectedCycle='all',selectedDate='all',layout='list',split=60;
  const current=()=>new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit'}).format(now());
  const defaultMonth=()=>{const [y,m]=current().split('-').map(Number),d=new Date(Date.UTC(y,m-2,1));return `${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,'0')}`;};
  const valid=value=>typeof value==='string'&&/^20\d{2}-(0[1-9]|1[0-2])$/.test(value)&&value<=current();
  const urlMonth=()=>{const value=new URL(location.href).searchParams.get('month');return valid(value)?value:defaultMonth();};
- function cancel(){actions.reset();version++;batch?.controller.abort();batch?.resolve();batch=null;}
+ function cancel(){closeHomeDetail(false);actions.reset();version++;batch?.controller.abort();batch?.resolve();batch=null;}
  function load(){
   cancel();if(!active||!role)return;loaded=false;const token=version,controller=new AbortController(),currentBatch={controller,token,rows:[],states:HOME_STORES.map(s=>({...s,status:'pending'})),queue:[...HOME_STORES],running:0,dueTasks:{status:role==='admin'?'loading':'restricted'}};batch=currentBatch;
   const done=new Promise(resolve=>{currentBatch.resolve=resolve;});
@@ -18,10 +20,13 @@ export function createHomeScreen({root,request,now=()=>new Date()}){
   const body=root.querySelector('[data-home-body]');
   function paint(){
    const focused=globalThis.document?.activeElement;
-   const focusKey=['homeJump','homeDate','homeFocus'].find(key=>focused?.dataset?.[key]!==undefined),focusValue=focusKey?focused.dataset[focusKey]:null;
+   const focusKey=['homeJump','homeDate','homeFocus','homeLayout'].find(key=>focused?.dataset?.[key]!==undefined),focusValue=focusKey?focused.dataset[focusKey]:null;
    const cycleFocused=focused?.dataset?.homeCycleSelect!==undefined,previousTop=focused?.getBoundingClientRect?.().top;
    let restoredFocus=null;
-   body.innerHTML=renderHome({month,rows:HOME_STORES.flatMap(s=>currentBatch.rows.filter(r=>r.store===s.id)),states:currentBatch.states,role,dueTasks:{...currentBatch.dueTasks,selectedCycle,selectedDate}});
+   body.innerHTML=renderHome({month,rows:HOME_STORES.flatMap(s=>currentBatch.rows.filter(r=>r.store===s.id)),states:currentBatch.states,role,layout,split,dueTasks:{...currentBatch.dueTasks,selectedCycle,selectedDate}});
+   hydrateEvaluationTargets(body);setSplit(split);
+   if(detailStore)markHomeSelection();
+   const route=new URL(location.href).searchParams;if(!detail&&route.get('evalStore')&&currentBatch.rows.some(row=>row.store===route.get('evalStore')))openHomeDetail(route.get('evalStore'),route.get('evalIssue'));
    if(focusKey){const attr=focusKey.replace(/[A-Z]/g,char=>'-'+char.toLowerCase());restoredFocus=[...root.querySelectorAll(`[data-${attr}]`)].find(node=>node.dataset[focusKey]===focusValue);}
    else if(cycleFocused)restoredFocus=root.querySelector('[data-home-cycle-select]');
    restoredFocus?.focus({preventScroll:true});
@@ -35,11 +40,31 @@ export function createHomeScreen({root,request,now=()=>new Date()}){
   async function readTasks(){try{const data=await request('/api/tasks',{signal:controller.signal,timeoutMs:45000});if(!fresh())return;currentBatch.dueTasks={status:'ready',...adaptDueTasks(data)};}catch{if(!fresh())return;currentBatch.dueTasks={status:'error'};}finally{if(fresh()){paint();pump();}}}
   paint();pump();if(role==='admin')void readTasks();return done;
  }
- const click=event=>{const action=event.target.closest('[data-home-action]');if(action&&active&&role==='admin')return actions.open({month,store:action.dataset.store,issue:action.dataset.issue},action);const list=event.target.closest('[data-home-actions-list]');if(list&&active&&role==='admin')return actions.list(month,list);const jump=event.target.closest('[data-home-jump]'),date=event.target.closest('[data-home-date]');if((jump||date)&&batch&&active&&role==='admin'){
+ function closeHomeDetail(clear=true){if(detail){detail.close();detail.remove();detail=null;}if(clear){const url=new URL(location.href);url.searchParams.delete('evalStore');url.searchParams.delete('evalIssue');history.replaceState(history.state,'',url.href);const link=[...root.querySelectorAll('a[data-view-link="eval"]')].find(node=>new URL(node.href,location.href).searchParams.get('evalStore')===detailStore);(detailOpener?.isConnected?detailOpener:link)?.focus?.({preventScroll:true});}detailStore=null;detailIssue=null;detailIds=null;root.querySelectorAll('[data-home-selected]').forEach(node=>node.removeAttribute('data-home-selected'));}
+ function markHomeSelection(){root.querySelectorAll('.home-store-list article').forEach(node=>node.setAttribute('data-home-selected',String(node.querySelector('header a')?.href.includes(`evalStore=${detailStore}`))));}
+ function openHomeDetail(store,issue,trigger){
+  const row=batch?.rows.find(row=>row.store===store);if(!row)return;issue=evaluationRouteParams(new URLSearchParams({evalStore:store,evalIssue:issue??''})).evalIssue;
+  if(!detail){detail=document.createElement('dialog');detail.className='home-detail-dialog';detail.setAttribute('aria-labelledby','eval-detail-title');detail.addEventListener('cancel',event=>{event.preventDefault();closeHomeDetail();});detail.addEventListener('click',event=>{if(event.target!==detail)return;const bounds=detail.getBoundingClientRect();if(event.clientX<bounds.left||event.clientX>bounds.right||event.clientY<bounds.top||event.clientY>bounds.bottom)closeHomeDetail();});root.append(detail);detailOpener=trigger;}
+  detailStore=store;detailIssue=issue;const ordered=[...root.querySelectorAll('.home-store-list article header a[data-view-link="eval"]')].map(link=>new URL(link.href,location.href).searchParams.get('evalStore'));const ids=detailIds??(detailIds=ordered.includes(store)?ordered:HOME_STORES.filter(item=>batch.rows.some(row=>row.store===item.id)).map(item=>item.id)),index=ids.indexOf(store);
+  detail.innerHTML=`<nav class="home-detail-nav" aria-label="매장 상세 이동"><span>${index+1} / ${ids.length}개 매장</span><button type="button" data-home-detail-prev ${index<=0?'disabled':''}>이전</button><button type="button" data-home-detail-next ${index>=ids.length-1?'disabled':''}>다음</button></nav>${renderEvaluationDetail({month,role},row)}<a class="home-detail-full" href="?view=eval&month=${month}&evalStore=${store}&evalFrom=home" data-view-link="eval">전체 평가에서 검토·확정 →</a>`;
+  detail.querySelectorAll('[data-eval-action]').forEach(button=>{if(button.dataset.evalAction==='close'){button.setAttribute('data-home-detail-close','');}else button.remove();});
+  detail.querySelector('[data-home-detail-prev]').onclick=()=>openHomeDetail(ids[index-1]);detail.querySelector('[data-home-detail-next]').onclick=()=>openHomeDetail(ids[index+1]);detail.querySelector('[data-home-detail-close]')?.addEventListener('click',()=>closeHomeDetail());
+  markHomeSelection();hydrateEvaluationTargets(detail);
+  const url=new URL(location.href);url.searchParams.set('evalStore',store);if(issue)url.searchParams.set('evalIssue',issue);else url.searchParams.delete('evalIssue');history.replaceState(history.state,'',url.href);
+  if(!detail.open)detail.showModal();const basis=issue?detail.querySelector(`[data-eval-basis="${issue}"]`):null;(basis??detail.querySelector('[data-home-detail-close]'))?.focus({preventScroll:true});if(basis)basis.scrollIntoView?.({block:'start'});else detail.scrollTop=0;
+ }
+ const click=event=>{const evalLink=event.target.closest('a[data-view-link="eval"]');if(evalLink&&(event.button===undefined||event.button===0)&&!event.metaKey&&!event.ctrlKey&&!event.shiftKey&&!event.altKey&&!detail?.contains(evalLink)&&active&&batch){const url=new URL(evalLink.href,location.href),store=url.searchParams.get('evalStore');if(batch.rows.some(row=>row.store===store)){event.preventDefault();event.stopPropagation();return openHomeDetail(store,url.searchParams.get('evalIssue'),evalLink);}}const mode=event.target.closest('[data-home-layout]');if(mode&&active&&batch){const before=new Map([...root.querySelectorAll('.home-store-list article')].map(node=>[node.querySelector('header a')?.href,node.getBoundingClientRect()]));layout=mode.dataset.homeLayout==='grid'?'grid':'list';batch.paint();if(!globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches){for(const node of root.querySelectorAll('.home-store-list article')){const previous=before.get(node.querySelector('header a')?.href),next=node.getBoundingClientRect();if(previous&&next.width&&next.height)node.animate?.([{transform:`translate(${previous.left-next.left}px,${previous.top-next.top}px) scale(${previous.width/next.width},${previous.height/next.height})`,transformOrigin:'top left'},{transform:'none',transformOrigin:'top left'}],{duration:220,easing:'cubic-bezier(.2,.7,.3,1)'});}}root.querySelector(`[data-home-layout="${layout}"]`)?.focus({preventScroll:true});return;}const preset=event.target.closest('[data-home-width]');if(preset){setSplit(Number(preset.dataset.homeWidth));return;}const action=event.target.closest('[data-home-action]');if(action&&active&&role==='admin')return actions.open({month,store:action.dataset.store,issue:action.dataset.issue},action);const list=event.target.closest('[data-home-actions-list]');if(list&&active&&role==='admin')return actions.list(month,list);const jump=event.target.closest('[data-home-jump]'),date=event.target.closest('[data-home-date]');if((jump||date)&&batch&&active&&role==='admin'){
  const key=jump?.dataset.homeJump??date.dataset.homeDate;if(key!=='eval'){selectedDate=['all','today','overdue'].includes(key)?key:'all';if(jump)selectedCycle='all';batch.paint();}
  if(jump){const target=root.querySelector(`[data-home-focus="${key==='eval'?'eval':'tasks'}"]`);target?.focus({preventScroll:true});target?.scrollIntoView?.({block:'start'});}else [...root.querySelectorAll('[data-home-date]')].find(node=>node.dataset.homeDate===selectedDate)?.focus({preventScroll:true});return;
  }if(event.target.closest('[data-home-retry],[data-home-task-retry]'))return load();};
  const change=event=>{if(event.target.matches('[data-home-cycle-select]')&&batch&&active&&role==='admin'){selectedCycle=event.target.value;batch.paint();root.querySelector('[data-home-cycle-select]')?.focus({preventScroll:true});return;}if(!event.target.matches('[data-home-month]'))return;const value=event.target.value;if(!valid(value)){event.target.setAttribute('aria-invalid','true');return;}if(value===month)return;month=value;const url=new URL(location.href);url.searchParams.set('month',month);history.replaceState(history.state,'',url.href);return load();};
+ function setSplit(value){split=Math.max(40,Math.min(70,Math.round(value)));root.querySelector('[data-home-panes]')?.style?.setProperty('--home-split',`${split}%`);root.querySelector('[data-home-split]')?.setAttribute?.('aria-valuenow',String(split));}
+ const splitKey=event=>{if(!event.target.matches?.('[data-home-split]'))return;const values={ArrowLeft:split-2,ArrowRight:split+2,Home:40,End:70,Escape:60};if(event.key in values){event.preventDefault();setSplit(values[event.key]);}};
+ let drag=null;
+ const splitDown=event=>{const handle=event.target.closest('[data-home-split]');if(!handle||event.button!==0)return;const panes=root.querySelector('[data-home-panes]');if(!panes)return;drag={handle,bounds:panes.getBoundingClientRect()};handle.setPointerCapture?.(event.pointerId);event.preventDefault();};
+ const splitMove=event=>{if(drag)setSplit((event.clientX-drag.bounds.left)/drag.bounds.width*100);};
+ const splitUp=()=>{drag=null;};
+ root.addEventListener('keydown',splitKey);root.addEventListener('pointerdown',splitDown);root.addEventListener('pointermove',splitMove);root.addEventListener('pointerup',splitUp);root.addEventListener('pointercancel',splitUp);
  root.addEventListener('click',click);root.addEventListener('change',change);
- return {activate({role:nextRole}){const changed=role!==nextRole||month!==urlMonth();role=nextRole;month=urlMonth();active=true;if(changed||!loaded&&!batch)return load();},syncURL(){const value=urlMonth();if(value!==month){month=value;if(active)return load();}},refresh(){return load();},deactivate(){active=false;loaded=false;cancel();},resetSession(){cancel();active=false;role=null;loaded=false;month=null;selectedCycle='all';selectedDate='all';root.replaceChildren();},destroy(){this.resetSession();actions.destroy();root.removeEventListener('click',click);root.removeEventListener('change',change);}};
+ return {activate({role:nextRole}){const changed=role!==nextRole||month!==urlMonth();role=nextRole;month=urlMonth();active=true;if(changed||!loaded&&!batch)return load();},syncURL(){const value=urlMonth();if(value!==month){month=value;if(active)return load();}const params=evaluationRouteParams(new URL(location.href).searchParams);if(detail&&(params.evalStore!==detailStore||params.evalIssue!==detailIssue))closeHomeDetail(false);if(active&&!detail&&params.evalStore&&batch?.rows.some(row=>row.store===params.evalStore))openHomeDetail(params.evalStore,params.evalIssue);},refresh(){return load();},deactivate(){active=false;loaded=false;cancel();},resetSession(){cancel();active=false;role=null;loaded=false;month=null;selectedCycle='all';selectedDate='all';layout='list';split=60;root.replaceChildren();},destroy(){this.resetSession();root.removeEventListener('keydown',splitKey);root.removeEventListener('pointerdown',splitDown);root.removeEventListener('pointermove',splitMove);root.removeEventListener('pointerup',splitUp);root.removeEventListener('pointercancel',splitUp);actions.destroy();root.removeEventListener('click',click);root.removeEventListener('change',change);}};
 }

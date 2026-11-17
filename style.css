@@ -1,9 +1,9 @@
-@import url('./tokens.css?v=481cc7f8380c');
-@import url('./base.css?v=481cc7f8380c');
-@import url('./pl/pl.css?v=481cc7f8380c');
-@import url('./eval/eval.css?v=481cc7f8380c');
-@import url('./home/home.css?v=481cc7f8380c');
-@import url('./auth-recovery.css?v=481cc7f8380c');
+@import url('./tokens.css?v=74b489bb035c');
+@import url('./base.css?v=74b489bb035c');
+@import url('./pl/pl.css?v=74b489bb035c');
+@import url('./eval/eval.css?v=74b489bb035c');
+@import url('./home/home.css?v=74b489bb035c');
+@import url('./auth-recovery.css?v=74b489bb035c');
 :root {
  --spacing-2: 2px;
  --spacing-3: 3px;
@@ -499,4 +499,58 @@ label,summary,.score-footnote,.results-section>.section-title .small { color:var
  .app-shell{display:block}
  .app-sidebar{display:none!important}
  .app-shell>main{padding:0;width:100%}
+}
+
+/* Lucian #040 / #303 / #288 interaction and hierarchy references.
+   Original examples: Copyright (c) Seokwoooo, MIT License.
+   Implementation uses native disclosures; no animation is required to reach a state. */
+.app-sidebar .nav-icon,.sidebar-toggle svg{width:20px;height:20px;flex:none;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.app-sidebar .view-nav a{display:flex;align-items:center;gap:12px;position:relative}
+.app-sidebar .view-nav a[aria-current=page]{box-shadow:inset 3px 0 0 var(--accent)}
+.sidebar-toggle{display:flex;align-items:center;gap:12px;min-height:44px;width:100%;margin:0 0 20px;padding:10px 16px;font-size:13px;color:var(--text-2)}
+.sidebar-toggle svg{transition:transform var(--dur-short) var(--ease-out)}
+.app-sidebar .environment{font-size:var(--type-label)}
+.app-shell .page-heading h1{font-size:var(--type-heading);font-weight:750;line-height:1.25}
+.marketing-basis{gap:8px;align-items:flex-start}
+.marketing-basis-state{order:-1;flex:1 0 100%;font-size:var(--type-label);color:var(--text-2)}
+.marketing-basis-details{flex:1 0 100%;min-width:0}
+.marketing-basis-details>summary{min-height:44px;display:flex;align-items:center;gap:8px;color:var(--text-2);font-size:14px;font-weight:600;cursor:pointer;list-style:none}
+.marketing-basis-details>summary::before{content:'›';font-size:22px;line-height:1;transition:transform var(--dur-short) var(--ease-out)}
+.marketing-basis-details[open]>summary::before{transform:rotate(90deg)}
+.marketing-basis-details>summary::-webkit-details-marker{display:none}
+.marketing-basis-details[open]{padding-bottom:4px}
+.marketing-basis-details button{margin:8px 8px 0 0}
+.marketing-basis-details .marketing-basis-text{margin:4px 0 8px}
+.marketing-basis-details .small:empty{display:none}
+.score-card .score-number strong{font-size:var(--type-figure);line-height:1.1;letter-spacing:-.035em;font-variant-numeric:tabular-nums}
+.score-card .score-title h3{font-size:20px;line-height:1.35;letter-spacing:-.02em}
+.score-card :is(.score-kind,.score-state,.score-caption,.score-note,.score-count,.score-rank,.score-formula,.score-composition-note),.score-footnote{font-size:var(--type-label);line-height:1.55}
+.score-card .score-detail>summary{min-height:48px}
+.score-card .score-breakdown dd{font-variant-numeric:tabular-nums}
+.score-card .score-reasons{font-size:14px;line-height:1.65}
+@media screen and (min-width:768px){
+ .app-shell.is-rail-collapsed{grid-template-columns:88px minmax(0,1fr)}
+ .is-rail-collapsed .app-sidebar{padding-inline:12px}
+ .is-rail-collapsed .app-header{padding:0 8px 24px;justify-content:center}
+ .is-rail-collapsed .brand-label,.is-rail-collapsed .nav-label,.is-rail-collapsed .sidebar-toggle-label,.is-rail-collapsed .environment{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+ .is-rail-collapsed .view-nav a,.is-rail-collapsed .sidebar-toggle{justify-content:center;padding-inline:12px}
+ .is-rail-collapsed .sidebar-toggle svg{transform:rotate(180deg)}
+ .is-rail-collapsed .header-actions{padding-inline:0;align-items:stretch}
+ .is-rail-collapsed .header-actions button{padding:8px 4px;font-size:13px;white-space:normal;min-height:44px;overflow-wrap:anywhere}
+}
+@media screen and (max-width:767px){
+ .sidebar-toggle{display:none}
+ .app-shell .page-heading h1{font-size:24px}
+ .score-card .score-number strong{font-size:36px}
+}
+@media(prefers-reduced-motion:reduce){.sidebar-toggle svg,.marketing-basis-details>summary::before{transition:none}}
+/* Supporting copy remains readable without changing the independent home/eval/PL layouts. */
+@media screen{
+ [data-view="dashboard"] :is(.small,.owner-status,.score-post-meta,.score-bonus-contributions li),
+ [data-view="history"] :is(.small,.eyebrow),
+ [data-view="trends"] :is(.small,.chart-label),
+ [data-view="report"] :is(.small,.report-metrics dt,.post-caption,.report-footnote),
+ [data-view="report"] .reading-table td::before,
+ [data-view="accounts"] .small{font-size:var(--type-label)}
+ .app-sidebar .theme-toggle{font-size:var(--type-label)}
 }

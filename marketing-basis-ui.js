@@ -1,4 +1,4 @@
-import {marketingBasisText} from './marketing-basis.js?v=481cc7f8380c';
+import {marketingBasisText} from './marketing-basis.js?v=74b489bb035c';
 const node=(tag,text,cls)=>{const n=document.createElement(tag);if(text!==undefined)n.textContent=text;if(cls)n.className=cls;return n;};
 const stamp=value=>{const d=new Date(value);return Number.isFinite(d.getTime())?new Intl.DateTimeFormat('ko-KR',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false}).format(d)+' KST':'수집 시각 확인 필요';};
 const short=ref=>`${stamp(ref.collectedAt)} · ${ref.reportId.slice(0,8)}`;
@@ -7,13 +7,16 @@ export function cancelMarketingBasisDialog(){openVersion++;activeDialog?.close()
 
 export function appendMarketingBasis(card,{month,store,resolution,growth,isReadOnly,api,onChange}){
  const group=node('div',undefined,'marketing-basis');group.dataset.basisState=resolution.state;
+ const disclosure=node('details',undefined,'marketing-basis-details'),summary=node('summary','수집 기준과 관리');
+ summary.setAttribute('aria-label',store.name+' 수집 기준과 관리');disclosure.append(summary);
  const text=marketingBasisText(resolution).replace(/^수집 기준:\s*/,'');
- group.append(node('p','기준: '+text,'marketing-basis-text'),node('span',resolution.state==='pinned'?'고정':resolution.state==='auto'?'자동 선택':'기준 확인 필요','marketing-basis-state'));
+ group.append(node('span',resolution.state==='pinned'?'고정':resolution.state==='auto'?'자동 선택':'기준 확인 필요','marketing-basis-state'));
+ disclosure.append(node('p','기준: '+text,'marketing-basis-text'));
  if(resolution.warningDays)group.append(node('p',`수집 시점 차이 ${resolution.warningDays}일`,'marketing-basis-warning'));
  if(resolution.newer)group.append(node('p',`더 최신 수집본이 있습니다 (${Number.isFinite(growth)?`조회수 ${growth>=0?'+':''}${growth.toLocaleString('ko-KR',{maximumFractionDigits:1})}%`:'조회수 비교 보류'})`,'marketing-basis-newer'));
- const live=node('p',undefined,'small');live.setAttribute('aria-live','polite');group.append(live);
- if(!isReadOnly){const change=node('button',resolution.state==='auto'?'기준 고정':'기준 변경','marketing-basis-change');change.type='button';change.addEventListener('click',()=>{if(writing){live.textContent='기준 변경 결과를 확인하고 있습니다.';return;}void openBasisDialog({month,store,api,onChange,opener:change,live});});group.append(change);}
- const evidence=node('button','수집 기준 근거 복사','button-quiet marketing-basis-copy');evidence.type='button';evidence.addEventListener('click',async()=>{try{await navigator.clipboard.writeText(marketingBasisText(resolution,{includeIds:true}));live.textContent='수집 기준 근거를 복사했습니다.';}catch{live.textContent='복사하지 못했습니다. 표시된 수집 기준을 확인해 주세요.';}});group.append(evidence);card.append(group);
+ const live=node('p',undefined,'small');live.setAttribute('aria-live','polite');disclosure.append(live);
+ if(!isReadOnly){const change=node('button',resolution.state==='auto'?'기준 고정':'기준 변경','marketing-basis-change');change.type='button';change.addEventListener('click',()=>{if(writing){live.textContent='기준 변경 결과를 확인하고 있습니다.';return;}void openBasisDialog({month,store,api,onChange,opener:change,live});});disclosure.append(change);}
+ const evidence=node('button','수집 기준 근거 복사','button-quiet marketing-basis-copy');evidence.type='button';evidence.addEventListener('click',async()=>{try{await navigator.clipboard.writeText(marketingBasisText(resolution,{includeIds:true}));live.textContent='수집 기준 근거를 복사했습니다.';}catch{live.textContent='복사하지 못했습니다. 표시된 수집 기준을 확인해 주세요.';}});disclosure.append(evidence);group.append(disclosure);card.append(group);
 }
 
 async function openBasisDialog({month,store,api,onChange,opener,live}){

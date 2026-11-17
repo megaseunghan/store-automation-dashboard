@@ -1,6 +1,6 @@
-import { apiText, exportLink } from './client.js?v=481cc7f8380c';
-import { trendPoints, pointChange } from './insights.js?v=481cc7f8380c';
-import {regularReports,collectionReportLabel} from './collection-reports.js?v=481cc7f8380c';
+import { apiText, exportLink } from './client.js?v=74b489bb035c';
+import { trendPoints, pointChange } from './insights.js?v=74b489bb035c';
+import {regularReports,collectionReportLabel} from './collection-reports.js?v=74b489bb035c';
 const $ = selector => document.querySelector(selector);
 const node = (tag, text, className) => { const n = document.createElement(tag); if (text !== undefined) n.textContent = text; if (className) n.className = className; return n; };
 const number = value => Number.isFinite(value) ? value.toLocaleString('ko-KR', { maximumFractionDigits: 1 }) : '미수집';
