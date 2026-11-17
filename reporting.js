@@ -1,6 +1,6 @@
-import { apiText, exportLink } from './client.js?v=86a551e0b93b';
-import { trendPoints, pointChange } from './insights.js?v=86a551e0b93b';
-import {regularReports,collectionReportLabel} from './collection-reports.js?v=86a551e0b93b';
+import { apiText, exportLink } from './client.js?v=661c25e9fa03';
+import { trendPoints, pointChange } from './insights.js?v=661c25e9fa03';
+import {regularReports,collectionReportLabel} from './collection-reports.js?v=661c25e9fa03';
 const $ = selector => document.querySelector(selector);
 const node = (tag, text, className) => { const n = document.createElement(tag); if (text !== undefined) n.textContent = text; if (className) n.className = className; return n; };
 const number = value => Number.isFinite(value) ? value.toLocaleString('ko-KR', { maximumFractionDigits: 1 }) : '미수집';
@@ -8,6 +8,7 @@ const date = value => new Intl.DateTimeFormat('ko-KR', { timeZone: 'Asia/Seoul',
 const platformName = value => value === 'instagram' ? 'Instagram' : 'Threads';
 const metricNames = { views: '조회 수', saved: '저장 수', shares: '공유 수', averageViews: '평균 조회 수', included: '인정 콘텐츠 수', followers: '팔로워 수' };
 let context, state, detailVersion = 0;
+export function resetReportingSession() { state = null; detailVersion++; }
 export function initReporting(config) {
   context = config;
   for (const id of ['trendYear', 'trendStore', 'trendPlatform', 'trendMode', 'trendMonth', 'trendMetric']) {

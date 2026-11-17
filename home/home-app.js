@@ -1,7 +1,7 @@
-import {adaptEvaluationResponse} from '../eval/eval-render.js?v=86a551e0b93b';
-import {adaptDueTasks} from './home-tasks.js?v=86a551e0b93b';
-import {renderHome} from './home-render.js?v=86a551e0b93b';
-import {createHomeActions} from './home-actions.js?v=86a551e0b93b';
+import {adaptEvaluationResponse} from '../eval/eval-render.js?v=661c25e9fa03';
+import {adaptDueTasks} from './home-tasks.js?v=661c25e9fa03';
+import {renderHome} from './home-render.js?v=661c25e9fa03';
+import {createHomeActions} from './home-actions.js?v=661c25e9fa03';
 export const HOME_STORES=[['haenggung','테네스 행궁'],['sindong','테네스 신동'],['paldal','팔달통닭바베큐'],['simgeum','심금'],['sasek','사색'],['yamiok','야미옥']].map(([id,name])=>({id,name}));
 export function createHomeScreen({root,request,now=()=>new Date()}){
  const actions=createHomeActions({root,request});

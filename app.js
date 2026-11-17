@@ -1,13 +1,14 @@
-import './navigation.js?v=86a551e0b93b';
-import { createScoreWorkspace } from './score-ui.js?v=86a551e0b93b';
-import { apiRequest, isCloud } from './client.js?v=86a551e0b93b';
-import { AUTOMATIONS } from './modules.js?v=86a551e0b93b';
-import { initReporting, updateReporting, syncReporting, reportActions } from './reporting.js?v=86a551e0b93b';
-import { createPLScreen } from './pl/pl-app.js?v=86a551e0b93b';
-import { createEvalScreen } from './eval/eval-app.js?v=86a551e0b93b';
-import { createHomeScreen } from './home/home-app.js?v=86a551e0b93b';
-import {createCollectionRangeForm} from './collect-form.js?v=86a551e0b93b';
-import {regularReports,collectionReportLabel} from './collection-reports.js?v=86a551e0b93b';
+import './navigation.js?v=661c25e9fa03';
+import { createScoreWorkspace } from './score-ui.js?v=661c25e9fa03';
+import { apiRequest, isCloud, sessionStorageKey, onSessionFailure } from './client.js?v=661c25e9fa03';
+import { authRecovery, createAccessLinkExchange, accessKeyFromLink } from './auth-recovery.js?v=661c25e9fa03';
+import { AUTOMATIONS } from './modules.js?v=661c25e9fa03';
+import { initReporting, updateReporting, syncReporting, reportActions, resetReportingSession } from './reporting.js?v=661c25e9fa03';
+import { createPLScreen } from './pl/pl-app.js?v=661c25e9fa03';
+import { createEvalScreen } from './eval/eval-app.js?v=661c25e9fa03';
+import { createHomeScreen } from './home/home-app.js?v=661c25e9fa03';
+import {createCollectionRangeForm} from './collect-form.js?v=661c25e9fa03';
+import {regularReports,collectionReportLabel} from './collection-reports.js?v=661c25e9fa03';
 let csrf = '', busy = false, refreshTimer, activeView;
 let readOnly = false, accessPending = false;
 let stores = [], lastPlatform = 'instagram', snapshot = null, refreshVersion = 0;
@@ -27,6 +28,33 @@ const homeScreen=createHomeScreen({root:$('#homeContent'),request:(path,{data,..
 const scoreWorkspace=createScoreWorkspace({api,stores:()=>stores,isReadOnly:()=>readOnly,onBasisChange:()=>refresh()});
 const hasActiveJob = () => ['queued', 'running'].includes(snapshot?.job?.status);
 const collectionRangeForm=createCollectionRangeForm({form:$('#collectForm'),month:$('#month'),stores:()=>stores});
+let authAction = '', authenticationRequired = false, authUIVersion = 0;
+const accessExchange = createAccessLinkExchange({request: (path, data) => apiRequest(path, data, '', {timeoutMs:15000})});
+function clearSessionUI() {
+  authUIVersion++;
+  refreshVersion++; clearTimeout(refreshTimer); snapshot = null; csrf = ''; stores = []; readOnly = true; scoreSelectionVersion++;
+  plScreen.resetSession(); evalScreen.resetSession(); homeScreen.resetSession(); scoreWorkspace.cancel(); resetReportingSession();
+  for (const id of ['accounts','latestResults','reports','trendContent','reportDetail','job']) { $('#' + id).replaceChildren(); $('#' + id).setAttribute('aria-busy','false'); }
+  for (const id of ['connectionStore','trendStore']) $('#' + id).replaceChildren();
+  $('#historyStore').replaceChildren(Object.assign(document.createElement('option'),{value:'',textContent:'전체 매장'}));
+  $('#collectStore').replaceChildren(Object.assign(document.createElement('option'),{value:'all',textContent:'전 매장 · 연결 계정 모두'}));
+  $('#shareUrl').value = ''; $('#connectForm').elements.token.value = '';
+  $('#serverEnvironment').textContent = '로그인 필요'; $('#logoutButton').hidden = true;
+  $('#accountSettingsLink').hidden = true; $('#managementTools').hidden = true; $('#sharePanel').hidden = true;
+  for (const id of ['connectedCount','overviewConnections','lastCollected']) $('#' + id).textContent = '로그인 필요';
+  $('#refreshButton').disabled = false; $('#refreshButton').hidden=true; $('#refreshButton').setAttribute('aria-busy','false');
+  authenticationRequired = true; syncView(); lockControls();
+}
+function showAuthRecovery(error, {retryLink = false, focus = false} = {}) {
+  const recovery = authRecovery(error, {retryLink});
+  authAction = recovery.action;
+  $('#authRecoveryTitle').textContent = recovery.title; $('#authRecoveryDetail').textContent = recovery.detail;
+  $('#authRecovery').hidden = false; $('#authLinkForm').hidden = !['link','retry-link'].includes(authAction);
+  $('#authRetry').hidden = !['retry','retry-link'].includes(authAction); $('#authRetry').textContent = retryLink ? '로그인 다시 시도' : '연결 다시 시도';
+  $('#authHome').hidden = authAction !== 'home' || !snapshot;
+  if (focus) $('#authRecoveryTitle').focus();
+}
+onSessionFailure(error => { if(error.code!=='csrf_invalid')clearSessionUI(); showAuthRecovery(error); });
 
 function updateRoute() {
   const platform = $('#platform').value;
@@ -51,7 +79,7 @@ function writeUrl(values, replace = false) {
 function syncView() {
   const requested = new URL(location.href).searchParams.get('view');
   const view = readOnly&&requested==='accounts'?'dashboard':['home','eval','dashboard', 'pl', 'history', 'accounts', 'trends', 'report'].includes(requested)?requested:'home';
-  for (const panel of document.querySelectorAll('[data-view]')) panel.hidden = panel.dataset.view !== view;
+  for (const panel of document.querySelectorAll('[data-view]')) { panel.hidden = authenticationRequired || panel.dataset.view !== view; panel.inert = authenticationRequired; }
   for (const link of document.querySelectorAll('[data-view-link]')) {
     if (link.dataset.viewLink === (view === 'report' ? 'history' : view)) link.setAttribute('aria-current', 'page'); else link.removeAttribute('aria-current');
   }
@@ -202,6 +230,7 @@ async function refresh() {
     const status = await api('/api/status'); if (requestVersion !== refreshVersion) return;
     if(snapshot&&snapshot.role!==status.role){plScreen.resetSession();evalScreen.resetSession();homeScreen.resetSession();}
     csrf = status.csrf; stores = status.stores; snapshot = status; readOnly = status.role === 'viewer';
+    authenticationRequired = false; $('#authRecovery').hidden = true; $('#refreshButton').hidden=false; $('#logoutButton').hidden = !isCloud;
     $('#serverEnvironment').textContent = `${status.serverLabel || '이 컴퓨터에서 실행 중'}${readOnly ? ' · 조회 전용' : ''}`;
     document.querySelector('.view-nav [data-view-link="accounts"]').hidden = true;
     $('#accountSettingsLink').hidden = readOnly; $('#managementTools').hidden = readOnly;
@@ -252,8 +281,8 @@ async function refresh() {
     lockControls(); if (['queued', 'running'].includes(status.job?.status)) refreshTimer = setTimeout(refresh, 3000);
   } catch (error) {
     if (requestVersion !== refreshVersion) return;
-    if(error.status===401){plScreen.resetSession();evalScreen.resetSession();homeScreen.resetSession();}
-    message(`${error.message} 화면 상단의 새로고침으로 다시 시도해 주세요.`, true);
+    if(error.status===401)clearSessionUI();
+    showAuthRecovery(error); message('');
     for (const id of ['accounts', 'latestResults', 'reports', 'trendContent', 'reportDetail']) { $('#' + id).setAttribute('aria-busy', 'false'); if (!snapshot) $('#' + id).replaceChildren(el('p', '데이터를 불러오지 못했습니다. 새로고침으로 다시 시도해 주세요.', 'empty')); }
     if (!snapshot) for (const id of ['connectedCount', 'overviewConnections', 'lastCollected']) $('#' + id).textContent = '확인 불가';
     lockControls();
@@ -275,7 +304,7 @@ $('#collectForm').addEventListener('submit', async event => {
   finally { busy = false; await refresh(); }
 });
 $('#platform').addEventListener('change', updateRoute); $('#route').addEventListener('change', updateRoute); $('#connectionStore').addEventListener('change', updateRoute);
-$('#refreshButton').addEventListener('click', async () => { message(''); if(activeView==='pl'&&snapshot)await plScreen.refresh();else if(activeView==='eval'&&snapshot)await evalScreen.refresh();else if(activeView==='home'&&snapshot)await homeScreen.refresh();else await refresh(); });
+$('#refreshButton').addEventListener('click', async () => { if (authenticationRequired) { $('#authRecoveryTitle').focus(); return; } message(''); if(activeView==='pl'&&snapshot)await plScreen.refresh();else if(activeView==='eval'&&snapshot)await evalScreen.refresh();else if(activeView==='home'&&snapshot)await homeScreen.refresh();else await refresh(); });
 $('#collectStore').addEventListener('change', lockControls);
 $('#month').addEventListener('change', () => { writeUrl({ month: $('#month').value }); renderLatest(); });
 for (const id of ['historyStore', 'historyPlatform', 'historyMonth']) $('#' + id).addEventListener('change', () => { writeUrl({ [id]: $('#' + id).value }); renderReports(); });
@@ -302,28 +331,62 @@ initReporting({ api, writeUrl, syncView, message, refresh, isReadOnly: () => rea
 for (const id of ['showShare', 'rotateShare']) $('#' + id).addEventListener('click', async () => {
   if (readOnly || busy || hasActiveJob()) return;
   if (id === 'rotateShare' && !confirm('기존 조회 링크와 조회 세션을 해제하고 새 링크를 발급할까요?')) return;
+  const sessionVersion = authUIVersion;
   busy = true; lockControls();
-  try { const result = await api(id === 'rotateShare' ? '/api/share/rotate' : '/api/share', id === 'rotateShare' ? {} : undefined); $('#shareUrl').value = result.viewer; message(id === 'rotateShare' ? '조회 링크를 새로 발급했습니다. 기존 링크는 해제됐습니다.' : '조회용 링크를 확인했습니다.'); }
+  try { const result = await api(id === 'rotateShare' ? '/api/share/rotate' : '/api/share', id === 'rotateShare' ? {} : undefined); if(sessionVersion!==authUIVersion||!snapshot||readOnly)return; $('#shareUrl').value = result.viewer; message(id === 'rotateShare' ? '조회 링크를 새로 발급했습니다. 기존 링크는 해제됐습니다.' : '조회용 링크를 확인했습니다.'); }
   catch (error) { message(error.message, true); } finally { busy = false; lockControls(); }
 });
 renderAutomations(); syncView();
 let accessLinkVersion = 0;
+function setAuthBusy(value) {
+  $('#authRecovery').setAttribute('aria-busy',String(value));
+  for (const control of document.querySelectorAll('#authRecovery button, #authRecovery input')) control.disabled=value;
+}
+async function exchangeAccessLink(key, retry = false) {
+  const version = ++accessLinkVersion;
+  clearSessionUI(); accessPending = true; setAuthBusy(true);
+  $('#authRecovery').hidden=false; $('#authRecoveryTitle').textContent='접속을 확인하고 있습니다'; $('#authRecoveryDetail').textContent='잠시만 기다려 주세요.';
+  try {
+    const result = await (retry ? accessExchange.retry() : accessExchange.start(key));
+    if (version !== accessLinkVersion || result.state === 'stale') return false;
+    if (result.state === 'success') { csrf=result.session.csrf || ''; readOnly=result.session.role==='viewer'; message(result.session.persisted===false?'이 브라우저는 로그인 정보 저장이 차단되어 있습니다. 이 탭에서는 이용할 수 있지만 다시 열 때 접속 링크가 필요합니다.':''); return true; }
+    showAuthRecovery(result.error || {code:'auth_required'}, {retryLink:result.retry,focus:true});
+    return false;
+  } finally { if (version === accessLinkVersion) { accessPending=false; setAuthBusy(false); } }
+}
 async function consumeAccessLink() {
   const accessKey = new URLSearchParams(location.hash.slice(1)).get('access');
-  if (!accessKey) return false;
-  const version = ++accessLinkVersion;
-  accessPending=true;refreshVersion++;clearTimeout(refreshTimer);snapshot=null;csrf='';
-  plScreen.resetSession();
-  evalScreen.resetSession();
-  homeScreen.resetSession();
+  if (!accessKey) return null;
   history.replaceState(null, '', location.pathname + location.search);
-  try {
-    const session = await api('/api/session', { key: accessKey });
-    if (version !== accessLinkVersion) return false;
-    snapshot = null; csrf = ''; readOnly = session.role === 'viewer'; lockControls(); message(''); return true;
-  } catch (error) { if (version === accessLinkVersion) message(error.message, true); return false; }
-  finally {if(version===accessLinkVersion)accessPending=false;}
+  return exchangeAccessLink(accessKey);
 }
+$('#authRetry').addEventListener('click', async () => {
+  if (accessPending) return;
+  if (authAction === 'retry-link') { if (await exchangeAccessLink('', true)) await refresh(); }
+  else await refresh();
+});
+$('#authHome').addEventListener('click', () => { $('#authRecovery').hidden=true; writeUrl({view:'home'}); syncView(); });
+$('#authLinkForm').addEventListener('submit', async event => {
+  event.preventDefault(); if (accessPending) return;
+  const key=accessKeyFromLink($('#authLink').value); $('#authLink').value='';
+  if (!key) { $('#authRecoveryDetail').textContent='접속 링크 전체를 붙여넣어 주세요. 주소 뒤의 접속 정보가 포함되어 있어야 합니다.'; $('#authLink').focus(); return; }
+  if (await exchangeAccessLink(key)) await refresh();
+});
+window.addEventListener('storage', event => {
+  if (!isCloud || event.key!==sessionStorageKey && event.key!==null) return;
+  accessExchange.cancel(); accessLinkVersion++; accessPending=false; setAuthBusy(false); clearSessionUI();
+  if (event.newValue) void refresh();
+  else { showAuthRecovery({code:'auth_required'}); $('#authRecoveryTitle').textContent='다른 탭에서 로그아웃했습니다'; }
+});
+$('#logoutButton').addEventListener('click', async () => {
+  if (!isCloud || !snapshot || accessPending) return;
+  accessPending=true; $('#logoutButton').disabled=true; accessExchange.cancel(); const version=++accessLinkVersion;
+  try { await apiRequest('/api/logout',{},csrf,{timeoutMs:15000}); if(version!==accessLinkVersion)return; clearSessionUI(); showAuthRecovery({code:'auth_required'},{focus:true}); $('#authRecoveryTitle').textContent='로그아웃했습니다'; }
+  catch (error) { if(version===accessLinkVersion)showAuthRecovery(error,{focus:true}); }
+  finally { if(version===accessLinkVersion)accessPending=false; $('#logoutButton').disabled=false; }
+});
+function recheckCloudSession() { if(isCloud&&snapshot&&!accessPending&&!busy&&document.visibilityState!=='hidden')void refresh(); }
+window.addEventListener('focus',recheckCloudSession);
+document.addEventListener('visibilitychange',recheckCloudSession);
 window.addEventListener('hashchange', async () => { if (await consumeAccessLink()) await refresh(); });
-await consumeAccessLink();
-await refresh();
+if (await consumeAccessLink() !== false) await refresh();

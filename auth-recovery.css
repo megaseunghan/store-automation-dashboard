@@ -1,0 +1,11 @@
+.auth-recovery { margin: 16px 0 24px; padding: clamp(16px, 3vw, 28px); border: 1px solid var(--line); border-radius: 16px; background: var(--panel); max-width: 680px; }
+.auth-recovery h2 { margin: 0 0 8px; font-size: 20px; line-height: 1.4; }
+.auth-recovery p { margin: 0 0 16px; font-size: 15px; line-height: 1.65; overflow-wrap: anywhere; }
+.auth-recovery form { display: grid; gap: 12px; }
+.auth-recovery label { display: grid; gap: 8px; font-size: 15px; }
+.auth-recovery input { width: 100%; min-width: 0; font-size: 16px; }
+.auth-recovery button { min-height: 44px; width: fit-content; max-width: 100%; }
+.auth-recovery [hidden] { display: none; }
+.auth-recovery h2:focus-visible { outline: 2px solid var(--accent); outline-offset: 5px; }
+.auth-recovery input:focus, .auth-recovery button:focus { outline: 2px solid var(--accent); outline-offset: 3px; }
+.auth-recovery .auth-help { margin: 8px 0 0; color: var(--text-2); font-size: 14px; }

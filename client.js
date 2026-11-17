@@ -1,9 +1,20 @@
-import { RUNTIME } from './runtime-config.js?v=86a551e0b93b';
-export function createTransport(config, { fetcher = fetch, storage = null } = {}) {
+import { RUNTIME } from './runtime-config.js?v=661c25e9fa03';
+export function createTransport(config, { fetcher = fetch, storage = null, onUnauthorized = () => {}, legacyStorage = null } = {}) {
   const cloud = config.mode === 'cloud';
-  let memorySession = null, sessionVersion = 0;
-  const readSession = () => { if (memorySession !== null) return memorySession; try { return storage?.getItem('automation-session') || ''; } catch { return ''; } };
-  const writeSession = value => { memorySession = value; try { if (value) storage?.setItem('automation-session', value); else storage?.removeItem('automation-session'); } catch { /* Keep this tab usable without persistent browser storage. */ } };
+  let memorySession = null, sessionVersion = 0, storageAvailable = Boolean(storage);
+  const storageKey = `dashboard-session:${config.apiBase || 'local'}`;
+  // Read shared storage each time so other tabs' logout is respected.
+  const readSession = () => {
+    try { if (storageAvailable) return storage.getItem(storageKey) || ''; } catch { storageAvailable=false; }
+    return memorySession || '';
+  };
+  const writeSession = value => {
+    memorySession = value;
+    try { if (value) storage?.setItem(storageKey, value); else storage?.removeItem(storageKey); } catch { storageAvailable=false; }
+    try { legacyStorage?.removeItem('automation-session'); } catch { /* Old tab storage can be unavailable. */ }
+  };
+  // Discard old tab-only tokens; never resurrect one after a shared-browser logout.
+  try { legacyStorage?.removeItem('automation-session'); } catch { /* Optional cleanup. */ }
   const endpoint = path => {
     if (!cloud) return path;
     if (!config.apiBase) throw new Error('공유 서버 연결을 준비 중입니다. 기존 Mac 화면에서 계속 사용할 수 있습니다.');
@@ -12,6 +23,7 @@ export function createTransport(config, { fetcher = fetch, storage = null } = {}
     return base.href.replace(/\/$/, '') + path.replace(/^\/api/, '');
   };
   async function request(path, data, { csrf = '', text = false, signal, timeoutMs = 0 } = {}) {
+    if (cloud && path === '/api/logout') { sessionVersion++; writeSession(''); return {loggedOut:true}; }
     const loginVersion = path === '/api/session' ? ++sessionVersion : null;
     const requestSessionVersion = sessionVersion, requestToken = cloud ? readSession() : '';
     const headers = {};
@@ -28,24 +40,34 @@ export function createTransport(config, { fetcher = fetch, storage = null } = {}
     const response = await fetcher(endpoint(path), { method: data === undefined ? 'GET' : 'POST', headers, ...(controller ? {signal:controller.signal} : {}), ...(cloud ? { credentials: 'omit' } : {}), ...(data !== undefined ? { body: JSON.stringify(data) } : {}) });
     if (!response.ok) {
       let error,payload; try { payload=await response.json();error=payload.error; } catch { /* Non-JSON upstream failures use a visible, non-sensitive message. */ }
-      if (cloud && response.status === 401 && requestSessionVersion === sessionVersion && readSession() === requestToken) writeSession('');
       const failure=new Error(error || `요청에 실패했습니다. (${response.status})`);failure.status=response.status;
+      if (['auth_required','session_expired','session_revoked','session_invalid','session_changed','forbidden','csrf_invalid'].includes(payload?.code)) failure.code=payload.code;
+      if (response.status === 401 && requestSessionVersion === sessionVersion && (!cloud || readSession() === requestToken)) {
+        if (cloud) writeSession('');
+        if (path !== '/api/session') onUnauthorized(failure);
+      }
+      if (failure.code === 'csrf_invalid' && requestSessionVersion === sessionVersion) onUnauthorized(failure);
       if(path==='/api/eval/confirm'&&response.status===409&&['total','incentiveTotal'].every(key=>typeof payload?.current?.[key]==='number'&&Number.isFinite(payload.current[key])))failure.current={total:payload.current.total,incentiveTotal:payload.current.incentiveTotal};
       throw failure;
     }
     if (text) return response.text();
     const result = await response.json();
-    if (cloud && path === '/api/session' && result.sessionToken && loginVersion === sessionVersion) writeSession(result.sessionToken);
+    if (cloud && path === '/api/session' && result.sessionToken && loginVersion === sessionVersion) { writeSession(result.sessionToken); result.persisted = storageAvailable; }
     return result;
     }catch(error){if(timedOut){const failure=new Error('요청 시간이 초과되었습니다. 다시 시도해 주세요.');failure.name='TimeoutError';throw failure;}throw error;}
     finally{clearTimeout(timer);signal?.removeEventListener('abort',forwardAbort);}
   }
-  return { request, cloud };
+  return { request, cloud, storageKey, invalidate() { sessionVersion++; memorySession = null; } };
 }
-let sessionStore;
-try { sessionStore = globalThis.sessionStorage; } catch { /* The server remains authoritative if browser storage is unavailable. */ }
-const transport = createTransport(RUNTIME, { storage: sessionStore });
+let sessionStore, legacyStore;
+try { sessionStore = globalThis.localStorage; } catch { /* The server remains authoritative if browser storage is unavailable. */ }
+try { legacyStore = globalThis.sessionStorage; } catch { /* Old tab-only session cleanup. */ }
+const sessionFailureListeners = new Set();
+const transport = createTransport(RUNTIME, { storage: sessionStore, legacyStorage: legacyStore, onUnauthorized: error => { for (const listener of sessionFailureListeners) listener(error); } });
 export const isCloud = transport.cloud;
+export const sessionStorageKey = transport.storageKey;
+globalThis.addEventListener?.('storage', event => { if(event.key===sessionStorageKey || event.key===null) transport.invalidate(); });
+export function onSessionFailure(listener) { sessionFailureListeners.add(listener); return () => sessionFailureListeners.delete(listener); }
 export const apiRequest = (path, data, csrf, options = {}) => transport.request(path, data, { ...options, csrf });
 export const apiText = path => transport.request(path, undefined, { text: true });
 export function exportLink(label, path, filename) {
