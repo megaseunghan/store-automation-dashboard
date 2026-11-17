@@ -1,11 +1,11 @@
-import {adaptEvaluationResponse} from '../eval/eval-render.js?v=e169d5941d13';
-import {adaptDueTasks} from './home-tasks.js?v=e169d5941d13';
-import {renderHome} from './home-render.js?v=e169d5941d13';
-import {createHomeActions} from './home-actions.js?v=e169d5941d13';
+import {adaptEvaluationResponse} from '../eval/eval-render.js?v=481cc7f8380c';
+import {adaptDueTasks} from './home-tasks.js?v=481cc7f8380c';
+import {renderHome} from './home-render.js?v=481cc7f8380c';
+import {createHomeActions} from './home-actions.js?v=481cc7f8380c';
 export const HOME_STORES=[['haenggung','테네스 행궁'],['sindong','테네스 신동'],['paldal','팔달통닭바베큐'],['simgeum','심금'],['sasek','사색'],['yamiok','야미옥']].map(([id,name])=>({id,name}));
 export function createHomeScreen({root,request,now=()=>new Date()}){
  const actions=createHomeActions({root,request});
- let role=null,active=false,batch=null,month=null,loaded=false,version=0,selectedCycle='all';
+ let role=null,active=false,batch=null,month=null,loaded=false,version=0,selectedCycle='all',selectedDate='all';
  const current=()=>new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit'}).format(now());
  const defaultMonth=()=>{const [y,m]=current().split('-').map(Number),d=new Date(Date.UTC(y,m-2,1));return `${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,'0')}`;};
  const valid=value=>typeof value==='string'&&/^20\d{2}-(0[1-9]|1[0-2])$/.test(value)&&value<=current();
@@ -16,7 +16,18 @@ export function createHomeScreen({root,request,now=()=>new Date()}){
   const done=new Promise(resolve=>{currentBatch.resolve=resolve;});
   root.innerHTML=`<div class="home-controls"><label for="home-month">평가 월<input id="home-month" data-home-month type="month" min="2020-01" max="${current()}" value="${month}"></label><p>최근 마감 월부터 확인합니다.</p></div><div data-home-body aria-live="polite"></div>`;
   const body=root.querySelector('[data-home-body]');
-  function paint(){const focusedCycle=globalThis.document?.activeElement?.dataset?.homeCycle;body.innerHTML=renderHome({month,rows:HOME_STORES.flatMap(s=>currentBatch.rows.filter(r=>r.store===s.id)),states:currentBatch.states,role,dueTasks:{...currentBatch.dueTasks,selectedCycle}});if(focusedCycle!==undefined)[...root.querySelectorAll('[data-home-cycle]')].find(b=>b.dataset.homeCycle===focusedCycle)?.focus({preventScroll:true});}
+  function paint(){
+   const focused=globalThis.document?.activeElement;
+   const focusKey=['homeJump','homeDate','homeFocus'].find(key=>focused?.dataset?.[key]!==undefined),focusValue=focusKey?focused.dataset[focusKey]:null;
+   const cycleFocused=focused?.dataset?.homeCycleSelect!==undefined,previousTop=focused?.getBoundingClientRect?.().top;
+   let restoredFocus=null;
+   body.innerHTML=renderHome({month,rows:HOME_STORES.flatMap(s=>currentBatch.rows.filter(r=>r.store===s.id)),states:currentBatch.states,role,dueTasks:{...currentBatch.dueTasks,selectedCycle,selectedDate}});
+   if(focusKey){const attr=focusKey.replace(/[A-Z]/g,char=>'-'+char.toLowerCase());restoredFocus=[...root.querySelectorAll(`[data-${attr}]`)].find(node=>node.dataset[focusKey]===focusValue);}
+   else if(cycleFocused)restoredFocus=root.querySelector('[data-home-cycle-select]');
+   restoredFocus?.focus({preventScroll:true});
+   const nextTop=restoredFocus?.getBoundingClientRect?.().top;
+   if(Number.isFinite(previousTop)&&Number.isFinite(nextTop)&&nextTop!==previousTop)globalThis.window?.scrollBy?.({top:nextTop-previousTop,behavior:'instant'});
+  }
   currentBatch.paint=paint;
   const fresh=()=>active&&batch===currentBatch&&version===token&&!controller.signal.aborted;
   function pump(){if(!fresh())return;while(currentBatch.running<2&&currentBatch.queue.length){const store=currentBatch.queue.shift();currentBatch.running++;read(store);}if(!currentBatch.running&&!currentBatch.queue.length&&currentBatch.dueTasks.status!=='loading'){loaded=true;currentBatch.resolve();}}
@@ -24,8 +35,11 @@ export function createHomeScreen({root,request,now=()=>new Date()}){
   async function readTasks(){try{const data=await request('/api/tasks',{signal:controller.signal,timeoutMs:45000});if(!fresh())return;currentBatch.dueTasks={status:'ready',...adaptDueTasks(data)};}catch{if(!fresh())return;currentBatch.dueTasks={status:'error'};}finally{if(fresh()){paint();pump();}}}
   paint();pump();if(role==='admin')void readTasks();return done;
  }
- const click=event=>{const action=event.target.closest('[data-home-action]');if(action&&active&&role==='admin')return actions.open({month,store:action.dataset.store,issue:action.dataset.issue},action);const list=event.target.closest('[data-home-actions-list]');if(list&&active&&role==='admin')return actions.list(month,list);const tab=event.target.closest('[data-home-cycle]');if(tab&&batch&&active&&role==='admin'){selectedCycle=tab.dataset.homeCycle;batch.paint();[...root.querySelectorAll('[data-home-cycle]')].find(b=>b.dataset.homeCycle===selectedCycle)?.focus({preventScroll:true});return;}if(event.target.closest('[data-home-retry],[data-home-task-retry]'))return load();};
- const change=event=>{if(!event.target.matches('[data-home-month]'))return;const value=event.target.value;if(!valid(value)){event.target.setAttribute('aria-invalid','true');return;}if(value===month)return;month=value;const url=new URL(location.href);url.searchParams.set('month',month);history.replaceState(history.state,'',url.href);return load();};
+ const click=event=>{const action=event.target.closest('[data-home-action]');if(action&&active&&role==='admin')return actions.open({month,store:action.dataset.store,issue:action.dataset.issue},action);const list=event.target.closest('[data-home-actions-list]');if(list&&active&&role==='admin')return actions.list(month,list);const jump=event.target.closest('[data-home-jump]'),date=event.target.closest('[data-home-date]');if((jump||date)&&batch&&active&&role==='admin'){
+ const key=jump?.dataset.homeJump??date.dataset.homeDate;if(key!=='eval'){selectedDate=['all','today','overdue'].includes(key)?key:'all';if(jump)selectedCycle='all';batch.paint();}
+ if(jump){const target=root.querySelector(`[data-home-focus="${key==='eval'?'eval':'tasks'}"]`);target?.focus({preventScroll:true});target?.scrollIntoView?.({block:'start'});}else [...root.querySelectorAll('[data-home-date]')].find(node=>node.dataset.homeDate===selectedDate)?.focus({preventScroll:true});return;
+ }if(event.target.closest('[data-home-retry],[data-home-task-retry]'))return load();};
+ const change=event=>{if(event.target.matches('[data-home-cycle-select]')&&batch&&active&&role==='admin'){selectedCycle=event.target.value;batch.paint();root.querySelector('[data-home-cycle-select]')?.focus({preventScroll:true});return;}if(!event.target.matches('[data-home-month]'))return;const value=event.target.value;if(!valid(value)){event.target.setAttribute('aria-invalid','true');return;}if(value===month)return;month=value;const url=new URL(location.href);url.searchParams.set('month',month);history.replaceState(history.state,'',url.href);return load();};
  root.addEventListener('click',click);root.addEventListener('change',change);
- return {activate({role:nextRole}){const changed=role!==nextRole||month!==urlMonth();role=nextRole;month=urlMonth();active=true;if(changed||!loaded&&!batch)return load();},syncURL(){const value=urlMonth();if(value!==month){month=value;if(active)return load();}},refresh(){return load();},deactivate(){active=false;loaded=false;cancel();},resetSession(){cancel();active=false;role=null;loaded=false;month=null;selectedCycle='all';root.replaceChildren();},destroy(){this.resetSession();actions.destroy();root.removeEventListener('click',click);root.removeEventListener('change',change);}};
+ return {activate({role:nextRole}){const changed=role!==nextRole||month!==urlMonth();role=nextRole;month=urlMonth();active=true;if(changed||!loaded&&!batch)return load();},syncURL(){const value=urlMonth();if(value!==month){month=value;if(active)return load();}},refresh(){return load();},deactivate(){active=false;loaded=false;cancel();},resetSession(){cancel();active=false;role=null;loaded=false;month=null;selectedCycle='all';selectedDate='all';root.replaceChildren();},destroy(){this.resetSession();actions.destroy();root.removeEventListener('click',click);root.removeEventListener('change',change);}};
 }

@@ -1,9 +1,9 @@
-@import url('./tokens.css?v=e169d5941d13');
-@import url('./base.css?v=e169d5941d13');
-@import url('./pl/pl.css?v=e169d5941d13');
-@import url('./eval/eval.css?v=e169d5941d13');
-@import url('./home/home.css?v=e169d5941d13');
-@import url('./auth-recovery.css?v=e169d5941d13');
+@import url('./tokens.css?v=481cc7f8380c');
+@import url('./base.css?v=481cc7f8380c');
+@import url('./pl/pl.css?v=481cc7f8380c');
+@import url('./eval/eval.css?v=481cc7f8380c');
+@import url('./home/home.css?v=481cc7f8380c');
+@import url('./auth-recovery.css?v=481cc7f8380c');
 :root {
  --spacing-2: 2px;
  --spacing-3: 3px;
