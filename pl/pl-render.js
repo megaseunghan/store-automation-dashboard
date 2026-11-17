@@ -1,4 +1,4 @@
-import {INTEGRATED_FROM} from './pl-eligibility.js?v=3d8ac971829e';
+import {INTEGRATED_FROM} from './pl-eligibility.js?v=e3fb905adeb4';
 export function createPLRenderer(model, calculations) {
 const PL_STORES=model.stores, PL_MONTHS=model.months;
 const {periodMonths,aggregatePL,previousMean,comparePL}=calculations;

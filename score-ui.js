@@ -1,6 +1,6 @@
-import {marketingScore,SCORE_BANDS,bonusReason} from './scoring.js?v=3d8ac971829e';
-import {resolveMarketingBasis,combineMarketingBasis,newerGrowth} from './marketing-basis.js?v=3d8ac971829e';
-import {appendMarketingBasis,cancelMarketingBasisDialog} from './marketing-basis-ui.js?v=3d8ac971829e';
+import {marketingScore,SCORE_BANDS,bonusReason} from './scoring.js?v=e3fb905adeb4';
+import {resolveMarketingBasis,combineMarketingBasis,newerGrowth} from './marketing-basis.js?v=e3fb905adeb4';
+import {appendMarketingBasis,cancelMarketingBasisDialog} from './marketing-basis-ui.js?v=e3fb905adeb4';
 const node=(tag,text,cls)=>{const n=document.createElement(tag);if(text!==undefined)n.textContent=text;if(cls)n.className=cls;return n;};
 const num=n=>Number.isFinite(n)?n.toLocaleString('ko-KR',{maximumFractionDigits:2}):'미확인';
 const signed=n=>n>0?'+'+n:String(n);
