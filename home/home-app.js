@@ -1,14 +1,16 @@
-import {adaptEvaluationResponse} from '../eval/eval-render.js?v=e3fb905adeb4';
-import {adaptDueTasks} from './home-tasks.js?v=e3fb905adeb4';
-import {renderHome} from './home-render.js?v=e3fb905adeb4';
+import {adaptEvaluationResponse} from '../eval/eval-render.js?v=86a551e0b93b';
+import {adaptDueTasks} from './home-tasks.js?v=86a551e0b93b';
+import {renderHome} from './home-render.js?v=86a551e0b93b';
+import {createHomeActions} from './home-actions.js?v=86a551e0b93b';
 export const HOME_STORES=[['haenggung','테네스 행궁'],['sindong','테네스 신동'],['paldal','팔달통닭바베큐'],['simgeum','심금'],['sasek','사색'],['yamiok','야미옥']].map(([id,name])=>({id,name}));
 export function createHomeScreen({root,request,now=()=>new Date()}){
+ const actions=createHomeActions({root,request});
  let role=null,active=false,batch=null,month=null,loaded=false,version=0,selectedCycle='all';
  const current=()=>new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit'}).format(now());
  const defaultMonth=()=>{const [y,m]=current().split('-').map(Number),d=new Date(Date.UTC(y,m-2,1));return `${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,'0')}`;};
  const valid=value=>typeof value==='string'&&/^20\d{2}-(0[1-9]|1[0-2])$/.test(value)&&value<=current();
  const urlMonth=()=>{const value=new URL(location.href).searchParams.get('month');return valid(value)?value:defaultMonth();};
- function cancel(){version++;batch?.controller.abort();batch?.resolve();batch=null;}
+ function cancel(){actions.reset();version++;batch?.controller.abort();batch?.resolve();batch=null;}
  function load(){
   cancel();if(!active||!role)return;loaded=false;const token=version,controller=new AbortController(),currentBatch={controller,token,rows:[],states:HOME_STORES.map(s=>({...s,status:'pending'})),queue:[...HOME_STORES],running:0,dueTasks:{status:role==='admin'?'loading':'restricted'}};batch=currentBatch;
   const done=new Promise(resolve=>{currentBatch.resolve=resolve;});
@@ -22,8 +24,8 @@ export function createHomeScreen({root,request,now=()=>new Date()}){
   async function readTasks(){try{const data=await request('/api/tasks',{signal:controller.signal,timeoutMs:45000});if(!fresh())return;currentBatch.dueTasks={status:'ready',...adaptDueTasks(data)};}catch{if(!fresh())return;currentBatch.dueTasks={status:'error'};}finally{if(fresh()){paint();pump();}}}
   paint();pump();if(role==='admin')void readTasks();return done;
  }
- const click=event=>{const tab=event.target.closest('[data-home-cycle]');if(tab&&batch&&active&&role==='admin'){selectedCycle=tab.dataset.homeCycle;batch.paint();[...root.querySelectorAll('[data-home-cycle]')].find(b=>b.dataset.homeCycle===selectedCycle)?.focus({preventScroll:true});return;}if(event.target.closest('[data-home-retry],[data-home-task-retry]'))return load();};
+ const click=event=>{const action=event.target.closest('[data-home-action]');if(action&&active&&role==='admin')return actions.open({month,store:action.dataset.store,issue:action.dataset.issue},action);const list=event.target.closest('[data-home-actions-list]');if(list&&active&&role==='admin')return actions.list(month,list);const tab=event.target.closest('[data-home-cycle]');if(tab&&batch&&active&&role==='admin'){selectedCycle=tab.dataset.homeCycle;batch.paint();[...root.querySelectorAll('[data-home-cycle]')].find(b=>b.dataset.homeCycle===selectedCycle)?.focus({preventScroll:true});return;}if(event.target.closest('[data-home-retry],[data-home-task-retry]'))return load();};
  const change=event=>{if(!event.target.matches('[data-home-month]'))return;const value=event.target.value;if(!valid(value)){event.target.setAttribute('aria-invalid','true');return;}if(value===month)return;month=value;const url=new URL(location.href);url.searchParams.set('month',month);history.replaceState(history.state,'',url.href);return load();};
  root.addEventListener('click',click);root.addEventListener('change',change);
- return {activate({role:nextRole}){const changed=role!==nextRole||month!==urlMonth();role=nextRole;month=urlMonth();active=true;if(changed||!loaded&&!batch)return load();},syncURL(){const value=urlMonth();if(value!==month){month=value;if(active)return load();}},refresh(){return load();},deactivate(){active=false;loaded=false;cancel();},resetSession(){cancel();active=false;role=null;loaded=false;month=null;selectedCycle='all';root.replaceChildren();},destroy(){this.resetSession();root.removeEventListener('click',click);root.removeEventListener('change',change);}};
+ return {activate({role:nextRole}){const changed=role!==nextRole||month!==urlMonth();role=nextRole;month=urlMonth();active=true;if(changed||!loaded&&!batch)return load();},syncURL(){const value=urlMonth();if(value!==month){month=value;if(active)return load();}},refresh(){return load();},deactivate(){active=false;loaded=false;cancel();},resetSession(){cancel();active=false;role=null;loaded=false;month=null;selectedCycle='all';root.replaceChildren();},destroy(){this.resetSession();actions.destroy();root.removeEventListener('click',click);root.removeEventListener('change',change);}};
 }

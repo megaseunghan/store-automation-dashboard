@@ -1,8 +1,8 @@
-@import url('./tokens.css?v=e3fb905adeb4');
-@import url('./base.css?v=e3fb905adeb4');
-@import url('./pl/pl.css?v=e3fb905adeb4');
-@import url('./eval/eval.css?v=e3fb905adeb4');
-@import url('./home/home.css?v=e3fb905adeb4');
+@import url('./tokens.css?v=86a551e0b93b');
+@import url('./base.css?v=86a551e0b93b');
+@import url('./pl/pl.css?v=86a551e0b93b');
+@import url('./eval/eval.css?v=86a551e0b93b');
+@import url('./home/home.css?v=86a551e0b93b');
 :root {
  --spacing-2: 2px;
  --spacing-3: 3px;
