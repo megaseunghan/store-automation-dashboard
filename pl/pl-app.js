@@ -1,6 +1,6 @@
-import {adaptPLResponse} from './pl-adapter.js?v=661c25e9fa03';
-import {createPLCalculations} from './pl-calc.js?v=661c25e9fa03';
-import {createPLRenderer} from './pl-render.js?v=661c25e9fa03';
+import {adaptPLResponse} from './pl-adapter.js?v=e169d5941d13';
+import {createPLCalculations} from './pl-calc.js?v=e169d5941d13';
+import {createPLRenderer} from './pl-render.js?v=e169d5941d13';
 
 // One read per session/entry; retries are explicit. No Notion calls originate here.
 export function createPLScreen({root,request,now=()=>new Date()}) {
@@ -22,17 +22,32 @@ export function createPLScreen({root,request,now=()=>new Date()}) {
   const canonical=value=>{const ids=idsFor(value);return ids.length===model.stores.length?'all':ids.length===1?ids[0]:ids.length?ids:'all';};
   function fromURL() {
     const url=new URL(location.href),store=canonical(url.searchParams.get('stores')?.split(',')||'all'),hq=url.searchParams.get('hq');
-    return {store,includeHQ:hq==='1'?true:hq==='0'?false:store==='all',hqExplicit:hq==='1'||hq==='0'};
+    const requestedMonth=url.searchParams.get('month');
+    const month=model.months.includes(requestedMonth)?requestedMonth:model.months.includes(model.currentMonth)?model.currentMonth:model.months.at(-1)||model.currentMonth;
+    let unit=url.searchParams.get('plUnit')||'month',period=url.searchParams.get('plPeriod')||month;
+    const months=calc.periodMonths(unit,period),available=months.filter(m=>model.months.includes(m));
+    const periodAvailable=available.length>0&&(!['month','ytd'].includes(unit)||model.months.includes(period));
+    // The common month wins when navigation leaves a stale PL period in the URL.
+    const matchesMonth=!requestedMonth||(model.months.includes(requestedMonth)&&months.includes(requestedMonth));
+    const valid=periodAvailable&&matchesMonth;
+    let anchorMonth=month;
+    if(valid)anchorMonth=months.includes(month)?month:available.at(-1);
+    else {unit='month';period=month;}
+    const requestedChart=url.searchParams.get('plChartMonth');
+    const chartMonth=valid&&model.months.includes(requestedChart)?requestedChart:anchorMonth;
+    return {store,includeHQ:hq==='1'?true:hq==='0'?false:store==='all',hqExplicit:hq==='1'||hq==='0',unit,period,anchorMonth,chartMonth};
   }
   function writeURL() {
     const url=new URL(location.href);
+    url.searchParams.set('month',state.anchorMonth);
+    url.searchParams.set('plUnit',state.unit);url.searchParams.set('plPeriod',state.period);
+    if(state.chartMonth!==state.anchorMonth)url.searchParams.set('plChartMonth',state.chartMonth);else url.searchParams.delete('plChartMonth');
     if(state.store==='all')url.searchParams.delete('stores');else url.searchParams.set('stores',idsFor(state.store).join(','));
     if(state.hqExplicit)url.searchParams.set('hq',state.includeHQ?'1':'0');else url.searchParams.delete('hq');
     history.replaceState(history.state,'',url.href.replace(/([?&]stores=)([^&#]*)/,(_,key,value)=>key+value.replace(/%2C/gi,',')));
   }
   function initialState() {
-    const month=model.currentMonth;
-    return {...fromURL(),unit:'month',period:month,anchorMonth:month,chartMonth:month,expanded:{},sort:{key:'netProfit',dir:'asc'},trendFull:false,theme};
+    return {...fromURL(),expanded:{},sort:{key:'netProfit',dir:'asc'},trendFull:false,theme};
   }
   function paint() {
     if(!model||destroyed||phase!=='ready')return;

@@ -1,6 +1,11 @@
-import {adaptEvaluationResponse,renderEvaluation,renderEvaluationDetail,renderEvaluationControls,renderEvaluationConfirmationDialog} from './eval-render.js?v=661c25e9fa03';
+import {adaptEvaluationResponse,renderEvaluation,renderEvaluationDetail,renderEvaluationControls,renderEvaluationConfirmationDialog} from './eval-render.js?v=e169d5941d13';
 
 const EVALUATION_STORES=[['haenggung','테네스 행궁'],['sindong','테네스 신동'],['paldal','팔달통닭바베큐'],['simgeum','심금'],['sasek','사색'],['yamiok','야미옥']].map(([id,name])=>({id,name}));
+
+export function evaluationRouteParams(params){
+ const store=params.get('evalStore'),issue=params.get('evalIssue'),knownStore=EVALUATION_STORES.some(item=>item.id===store);
+ return {evalStore:knownStore?store:'',evalIssue:knownStore&&['sales','cost','labor','hit'].includes(issue)?issue:'',evalFrom:params.get('evalFrom')==='home'?'home':''};
+}
 
 export function createEvalScreen({root,request,now=()=>new Date()}){
  let role=null,model=null,batch=null,attemptedMonth=null,generation=0,phase='idle',destroyed=false,active=false,dialog=null,opener=null,view=null,progressNodes=null,controls=null,monthTimer=null,confirmationNotice=null,dialogContext=null,mutation=null;
@@ -13,10 +18,18 @@ export function createEvalScreen({root,request,now=()=>new Date()}){
  const defaultMonth=()=>{const month=new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit'}).format(clock()),[year,m]=month.split('-').map(Number),date=new Date(Date.UTC(year,m-2,1));return `${date.getUTCFullYear()}-${String(date.getUTCMonth()+1).padStart(2,'0')}`;};
  const urlMonth=()=>{const value=new URL(location.href).searchParams.get('month');return valid(value)?value:defaultMonth();};
  const dirtyConfirmationMonths=new Set();
- let state={month:urlMonth(),sort:'total'};
- function closeDetail({focus=true}={}){if(!dialog)return;const context=dialogContext;dialog.close();dialog.remove();dialog=null;dialogContext=null;if(focus){const target=context?root.querySelector(`[data-eval-action="${context.action==='confirm'?'confirm-open':'unconfirm-open'}"][data-eval-confirm-store="${context.store}"]`):null;(target??root.querySelector(`[data-eval-store="${opener}"]`))?.focus({preventScroll:true});}}
+ let state={month:urlMonth(),sort:'total'},detailRoute=null,openedRoute=null;
+ function routeDetail(){
+  if(!active||destroyed)return;
+  const params=evaluationRouteParams(new URL(location.href).searchParams),key=`${state.month}/${params.evalStore}/${params.evalIssue}`;
+  if(detailRoute!==key){closeDetail({focus:false,clearRoute:false});detailRoute=key;openedRoute=null;}
+  if(!dialogContext&&params.evalStore&&openedRoute!==key&&model?.month===state.month&&model.rows.some(row=>row.store===params.evalStore)){openDetail(params.evalStore,params.evalIssue);openedRoute=key;}
+ }
+ function clearDetailRoute(){const url=new URL(location.href);url.searchParams.delete('evalStore');url.searchParams.delete('evalIssue');history.replaceState(history.state,'',url.href);detailRoute=null;openedRoute=null;}
+
+ function closeDetail({focus=true,clearRoute=focus}={}){if(clearRoute)clearDetailRoute();if(!dialog)return;openedRoute=null;const context=dialogContext;dialog.close();dialog.remove();dialog=null;dialogContext=null;if(focus){const target=context?root.querySelector(`[data-eval-action="${context.action==='confirm'?'confirm-open':'unconfirm-open'}"][data-eval-confirm-store="${context.store}"]`):null;(target??root.querySelector(`[data-eval-store="${opener}"]`))?.focus({preventScroll:true});}}
  function paint(){
-  if(!model||destroyed||phase==='idle')return;
+  if(!active||!model||destroyed||phase==='idle')return;
   if(!view){
    const section=document.createElement('section'),status=document.createElement('p'),bar=document.createElement('div'),fill=document.createElement('span');
    section.className='eval-panel eval-loading-progress';status.className='eval-progress-status';status.setAttribute('aria-live','polite');bar.className='eval-progress-track';bar.setAttribute('data-eval-progress','');bar.setAttribute('role','progressbar');bar.setAttribute('aria-valuemin','0');bar.setAttribute('aria-valuemax','100');bar.setAttribute('aria-label','종합평가 불러오기 진행률');fill.className='eval-progress-fill';bar.append(fill);section.append(status);section.append(bar);progressNodes={section,status,bar,fill};view=document.createElement('div');controls=document.createElement('div');controls.className='eval-controls-host';controls.innerHTML=renderEvaluationControls({...state,maxMonth:maxMonth()});confirmationNotice=document.createElement('p');confirmationNotice.className='eval-confirm-status';confirmationNotice.setAttribute('data-eval-confirm-status','');confirmationNotice.setAttribute('aria-live','polite');root.replaceChildren(section,controls,confirmationNotice,view);
@@ -26,8 +39,9 @@ export function createEvalScreen({root,request,now=()=>new Date()}){
   progressNodes.bar.setAttribute('aria-valuenow',String(percent));progressNodes.fill.style.transform=`scaleX(${completed/total})`;
   syncControls();
   const focused=document.activeElement,store=focused?.dataset?.evalStore;
-  view.innerHTML=renderEvaluation(model,{...state,renderProgress:false,renderControls:false});
+  view.innerHTML=renderEvaluation(model,{...state,fromHome:evaluationRouteParams(new URL(location.href).searchParams).evalFrom==='home',renderProgress:false,renderControls:false});
   if(store)root.querySelector(`[data-eval-store="${store}"]`)?.focus({preventScroll:true});
+  routeDetail();
 
  }
  function cancelMonthTimer(){if(monthTimer!==null){clearTimeout(monthTimer);monthTimer=null;}}
@@ -96,7 +110,7 @@ export function createEvalScreen({root,request,now=()=>new Date()}){
   if(current.active===0&&current.queue.length===0)resetCompletion(current);
   item.retrying=true;current.queue.push(id);paint();pump(current);return current.done;
  }
- function openDetail(id){const row=model?.rows.find(row=>row.store===id);if(!row)return;closeDetail({focus:false});opener=id;dialog=document.createElement('dialog');dialog.className='eval-detail-sheet';dialog.setAttribute('aria-labelledby','eval-detail-title');dialog.innerHTML=renderEvaluationDetail(model,row);dialog.addEventListener('cancel',event=>{event.preventDefault();closeDetail();});root.append(dialog);dialog.showModal();dialog.querySelector('[data-eval-action="close"]')?.focus();}
+ function openDetail(id,issue){const row=model?.rows.find(row=>row.store===id);if(!row)return;closeDetail({focus:false});opener=id;dialog=document.createElement('dialog');dialog.className='eval-detail-sheet';dialog.setAttribute('aria-labelledby','eval-detail-title');dialog.innerHTML=renderEvaluationDetail(model,row,{fromHome:evaluationRouteParams(new URL(location.href).searchParams).evalFrom==='home'});dialog.addEventListener('cancel',event=>{event.preventDefault();closeDetail();});root.append(dialog);dialog.showModal();const basis=issue?dialog.querySelector(`[data-eval-basis="${issue}"]`):null;(basis??dialog.querySelector('[data-eval-action="close"]'))?.focus();basis?.scrollIntoView?.({block:'start'});}
  function confirmationNoticeText(text){if(confirmationNotice)confirmationNotice.textContent=text;}
  function openConfirmation(id,action){
   if(role!=='admin'||mutation)return;const row=model?.rows.find(row=>row.store===id);
@@ -151,7 +165,8 @@ export function createEvalScreen({root,request,now=()=>new Date()}){
  function resetSession(){cancelMonthTimer();generation++;cancelBatch();closeDetail({focus:false});role=null;model=null;attemptedMonth=null;phase='idle';active=false;view=null;progressNodes=null;controls=null;confirmationNotice=null;root.replaceChildren();}
  return {
   activate({role:nextRole}){if(destroyed)return;if(role&&role!==nextRole)resetSession();role=nextRole;active=true;const month=urlMonth();if(month!==state.month){state={...state,month};attemptedMonth=null;}if(attemptedMonth!==state.month||dirtyConfirmationMonths.has(state.month))return load();},
-  syncURL(){cancelMonthTimer();const month=urlMonth();if(month!==state.month){state={...state,month};if(active)return load();}},
+  deactivate(){active=false;cancelMonthTimer();generation++;cancelBatch();closeDetail({focus:false});attemptedMonth=null;},
+  syncURL(){cancelMonthTimer();const month=urlMonth();if(month!==state.month){state={...state,month};if(active)return load();}if(active){routeDetail();paint();}},
   refresh(){cancelMonthTimer();return load();},resetSession,
   destroy(){resetSession();destroyed=true;root.removeEventListener('click',click);root.removeEventListener('keydown',keydown);root.removeEventListener('change',change);root.removeEventListener('input',stageMonth);},
  };

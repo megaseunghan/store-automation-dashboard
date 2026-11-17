@@ -1,14 +1,14 @@
-import './navigation.js?v=661c25e9fa03';
-import { createScoreWorkspace } from './score-ui.js?v=661c25e9fa03';
-import { apiRequest, isCloud, sessionStorageKey, onSessionFailure } from './client.js?v=661c25e9fa03';
-import { authRecovery, createAccessLinkExchange, accessKeyFromLink } from './auth-recovery.js?v=661c25e9fa03';
-import { AUTOMATIONS } from './modules.js?v=661c25e9fa03';
-import { initReporting, updateReporting, syncReporting, reportActions, resetReportingSession } from './reporting.js?v=661c25e9fa03';
-import { createPLScreen } from './pl/pl-app.js?v=661c25e9fa03';
-import { createEvalScreen } from './eval/eval-app.js?v=661c25e9fa03';
-import { createHomeScreen } from './home/home-app.js?v=661c25e9fa03';
-import {createCollectionRangeForm} from './collect-form.js?v=661c25e9fa03';
-import {regularReports,collectionReportLabel} from './collection-reports.js?v=661c25e9fa03';
+import './navigation.js?v=e169d5941d13';
+import { createScoreWorkspace } from './score-ui.js?v=e169d5941d13';
+import { apiRequest, isCloud, sessionStorageKey, onSessionFailure } from './client.js?v=e169d5941d13';
+import { authRecovery, createAccessLinkExchange, accessKeyFromLink } from './auth-recovery.js?v=e169d5941d13';
+import { AUTOMATIONS } from './modules.js?v=e169d5941d13';
+import { initReporting, updateReporting, syncReporting, reportActions, resetReportingSession } from './reporting.js?v=e169d5941d13';
+import { createPLScreen } from './pl/pl-app.js?v=e169d5941d13';
+import { createEvalScreen, evaluationRouteParams } from './eval/eval-app.js?v=e169d5941d13';
+import { createHomeScreen } from './home/home-app.js?v=e169d5941d13';
+import {createCollectionRangeForm} from './collect-form.js?v=e169d5941d13';
+import {regularReports,collectionReportLabel} from './collection-reports.js?v=e169d5941d13';
 let csrf = '', busy = false, refreshTimer, activeView;
 let readOnly = false, accessPending = false;
 let stores = [], lastPlatform = 'instagram', snapshot = null, refreshVersion = 0;
@@ -83,7 +83,7 @@ function syncView() {
   for (const link of document.querySelectorAll('[data-view-link]')) {
     if (link.dataset.viewLink === (view === 'report' ? 'history' : view)) link.setAttribute('aria-current', 'page'); else link.removeAttribute('aria-current');
   }
-  if (activeView !== view) { if(activeView==='dashboard')scoreWorkspace.cancel();if(activeView==='home')homeScreen.deactivate();activeView = view; window.scrollTo({ top: 0, behavior: 'instant' }); }
+  if (activeView !== view) { if(activeView==='dashboard')scoreWorkspace.cancel();if(activeView==='home')homeScreen.deactivate();if(activeView==='eval')evalScreen.deactivate();activeView = view; window.scrollTo({ top: 0, behavior: 'instant' }); }
   const title=({home:'본부 현황',eval:'종합평가',dashboard:'마케팅',pl:'손익',history:'지난 보고서',accounts:'계정 설정',trends:'연간 추이',report:'상세 보고서'})[view];
   document.title = `${title} | 매장 업무`;
   document.body.classList.toggle('pl-view-active',view==='pl');
@@ -322,6 +322,7 @@ document.addEventListener('click', event => {
     const selected=destination.searchParams.get('marketingStore');if(selected&&Object.hasOwn(marketingStoreAliases,selected))values.marketingStore=selected;
     const month=destination.searchParams.get('month');if(validMonth(month))values.month=month;
   }
+  Object.assign(values,values.view==='eval'?evaluationRouteParams(destination.searchParams):{evalStore:'',evalIssue:'',evalFrom:''});
   writeUrl(values);
   if(values.view==='dashboard'&&snapshot){const month=new URL(location.href).searchParams.get('month');if(validMonth(month))$('#month').value=month;renderLatest();}
   syncView();syncReporting();

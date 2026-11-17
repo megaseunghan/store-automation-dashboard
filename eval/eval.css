@@ -126,3 +126,6 @@
 @media(max-width:767px) { .eval-score-table .eval-loading-cell { grid-column:1/-1; align-items:flex-start; padding:6px 0; } .eval-score-table .eval-store-loading th { grid-column:1/-1; } }
 /* Override the shared reduced-motion rule's important minimum duration. */
 @media(prefers-reduced-motion:reduce) { .eval-progress-track .eval-progress-fill { transition:none !important; } }
+
+.eval-home-return {display:inline-flex;align-items:center;min-height:44px;margin-bottom:8px;}
+.eval-detail-block[data-eval-basis]:focus {outline:2px solid var(--accent, #2563eb);outline-offset:4px;}
